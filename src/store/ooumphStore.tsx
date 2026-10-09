@@ -10,7 +10,16 @@ import {
   Deal,
   EmployeeConversation,
   UserSettings,
-  SimulationLogEvent
+  SimulationLogEvent,
+  Project,
+  WorkflowTemplate,
+  WorkflowRun,
+  IntegrationConnection,
+  IntegrationProvider,
+  TeamMember,
+  ActivityEvent,
+  ScheduledMeeting,
+  AppView
 } from '../types';
 import { INITIAL_EMPLOYEES } from '../data/employees';
 import { INITIAL_WORKSPACES } from '../data/workspaces';
@@ -22,14 +31,21 @@ import {
   INITIAL_TASKS,
   INITIAL_APPROVALS,
   INITIAL_DEALS,
-  INITIAL_CONVERSATIONS
+  INITIAL_CONVERSATIONS,
+  INITIAL_INTEGRATION_CONNECTIONS,
+  INITIAL_PROJECTS,
+  INITIAL_WORKFLOW_RUNS,
+  INITIAL_WORKFLOW_TEMPLATES,
+  INITIAL_TEAM_MEMBERS,
+  INITIAL_ACTIVITY_EVENTS,
+  INITIAL_SCHEDULED_MEETINGS
 } from '../data/seedData';
 
 interface OoumphContextType {
   // Navigation & View State
-  currentView: 'team' | 'work' | 'inbox' | 'business' | 'sales-hub';
+  currentView: AppView;
   selectedEmployeeId: string | null;
-  workTab: 'tasks' | 'calendar' | 'campaigns' | 'assets' | 'results';
+  workTab: 'projects' | 'workflows' | 'tasks' | 'calendar' | 'campaigns' | 'assets' | 'results';
   inboxTab: 'conversations' | 'questions' | 'approvals';
   isDemoToolsOpen: boolean;
   isFlagshipSimulatorOpen: boolean;
@@ -53,11 +69,18 @@ interface OoumphContextType {
   conversations: Record<string, EmployeeConversation>;
   settings: UserSettings;
   simulationLogs: SimulationLogEvent[];
+  projects: Project[];
+  workflowRuns: WorkflowRun[];
+  workflowTemplates: WorkflowTemplate[];
+  integrationConnections: IntegrationConnection[];
+  teamMembers: TeamMember[];
+  activityEvents: ActivityEvent[];
+  scheduledMeetings: ScheduledMeeting[];
 
   // Actions
-  navigate: (view: 'team' | 'work' | 'inbox' | 'business' | 'sales-hub', employeeId?: string | null) => void;
+  navigate: (view: AppView, employeeId?: string | null) => void;
   selectEmployee: (employeeId: string | null) => void;
-  setWorkTab: (tab: 'tasks' | 'calendar' | 'campaigns' | 'assets' | 'results') => void;
+  setWorkTab: (tab: 'projects' | 'workflows' | 'tasks' | 'calendar' | 'campaigns' | 'assets' | 'results') => void;
   setInboxTab: (tab: 'conversations' | 'questions' | 'approvals') => void;
   setIsDemoToolsOpen: (open: boolean) => void;
   setIsFlagshipSimulatorOpen: (open: boolean) => void;
@@ -98,6 +121,30 @@ interface OoumphContextType {
   resetToFactoryDefaults: () => void;
   exportWorkspaceJSON: () => void;
   mockClientDecisionOnDeal: (dealId: string, decision: 'accept' | 'request_edit') => void;
+
+  // Multi-Agent & Project Handlers
+  advanceWorkflowStep: (runId: string, stepId: string) => void;
+  startWorkflowFromTemplate: (templateId: string, customTitle?: string) => string;
+  createProject: (projectData: Omit<Project, 'id' | 'createdAt' | 'updatedAt'>) => void;
+  updateProject: (projectId: string, partial: Partial<Project>) => void;
+
+  // Integrations & Settings Handlers
+  updateIntegrationStatus: (connectionId: string, status: IntegrationConnection['status'], permissionIssues?: string[]) => void;
+  connectIntegration: (params: { provider: IntegrationProvider; accountName: string; accountHandle?: string; accountType?: string; capabilities?: string[]; parentConnectionId?: string }) => void;
+  disconnectIntegration: (connectionId: string) => void;
+  reconnectIntegration: (connectionId: string) => void;
+  inviteTeamMember: (name: string, email: string, role: TeamMember['role']) => void;
+  removeTeamMember: (memberId: string) => void;
+  updateActionRule: (ruleId: string, requiresApproval: boolean) => void;
+  updateEmployeeAutonomyOverride: (employeeId: string, mode: 'default' | 'strict' | 'autonomous') => void;
+  updateWorkspaceDetails: (details: Partial<Workspace>) => void;
+
+  // Sales Surface Handlers
+  createDeal: (dealData: Omit<Deal, 'id' | 'createdAt' | 'legalReviewSigned' | 'mockCustomerApproved'>) => void;
+  updateDealStage: (dealId: string, stage: Deal['stage']) => void;
+  simulateNewInboundLead: (data?: Partial<LeadProspect>) => void;
+  scheduleMeeting: (meetingData: Omit<ScheduledMeeting, 'id'>) => void;
+  cancelMeeting: (meetingId: string) => void;
 }
 
 const STORAGE_KEY = 'ooumph_app_state_v1';
@@ -106,9 +153,9 @@ const OoumphContext = createContext<OoumphContextType | null>(null);
 
 export const OoumphProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   // Navigation state
-  const [currentView, setCurrentView] = useState<'team' | 'work' | 'inbox' | 'business' | 'sales-hub'>('team');
+  const [currentView, setCurrentView] = useState<AppView>('team');
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<string | null>(null);
-  const [workTab, setWorkTab] = useState<'tasks' | 'calendar' | 'campaigns' | 'assets' | 'results'>('tasks');
+  const [workTab, setWorkTab] = useState<'projects' | 'workflows' | 'tasks' | 'calendar' | 'campaigns' | 'assets' | 'results'>('projects');
   const [inboxTab, setInboxTab] = useState<'conversations' | 'questions' | 'approvals'>('approvals');
   const [isDemoToolsOpen, setIsDemoToolsOpen] = useState(false);
   const [isFlagshipSimulatorOpen, setIsFlagshipSimulatorOpen] = useState(false);
@@ -131,6 +178,13 @@ export const OoumphProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [deals, setDeals] = useState<Deal[]>(INITIAL_DEALS);
   const [conversations, setConversations] = useState<Record<string, EmployeeConversation>>(INITIAL_CONVERSATIONS);
   const [settings, setSettings] = useState<UserSettings>(INITIAL_USER_SETTINGS);
+  const [projects, setProjects] = useState<Project[]>(INITIAL_PROJECTS);
+  const [workflowRuns, setWorkflowRuns] = useState<WorkflowRun[]>(INITIAL_WORKFLOW_RUNS);
+  const [workflowTemplates] = useState<WorkflowTemplate[]>(INITIAL_WORKFLOW_TEMPLATES);
+  const [integrationConnections, setIntegrationConnections] = useState<IntegrationConnection[]>(INITIAL_INTEGRATION_CONNECTIONS);
+  const [teamMembers, setTeamMembers] = useState<TeamMember[]>(INITIAL_TEAM_MEMBERS);
+  const [activityEvents, setActivityEvents] = useState<ActivityEvent[]>(INITIAL_ACTIVITY_EVENTS);
+  const [scheduledMeetings, setScheduledMeetings] = useState<ScheduledMeeting[]>(INITIAL_SCHEDULED_MEETINGS);
   const [simulationLogs, setSimulationLogs] = useState<SimulationLogEvent[]>([
     {
       id: 'log-1',
@@ -161,6 +215,12 @@ export const OoumphProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         if (parsed.allWorkspaces) setAllWorkspaces(parsed.allWorkspaces);
         if (parsed.simulationLogs) setSimulationLogs(parsed.simulationLogs);
         if (parsed.demoMode) setDemoModeState(parsed.demoMode);
+        if (parsed.projects) setProjects(parsed.projects);
+        if (parsed.workflowRuns) setWorkflowRuns(parsed.workflowRuns);
+        if (parsed.integrationConnections) setIntegrationConnections(parsed.integrationConnections);
+        if (parsed.teamMembers) setTeamMembers(parsed.teamMembers);
+        if (parsed.activityEvents) setActivityEvents(parsed.activityEvents);
+        if (parsed.scheduledMeetings) setScheduledMeetings(parsed.scheduledMeetings);
       }
     } catch {
       // Use initial state fallback
@@ -183,7 +243,13 @@ export const OoumphProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         activeWorkspaceId,
         allWorkspaces,
         simulationLogs,
-        demoMode
+        demoMode,
+        projects,
+        workflowRuns,
+        integrationConnections,
+        teamMembers,
+        activityEvents,
+        scheduledMeetings
       };
       localStorage.setItem(STORAGE_KEY, JSON.stringify(stateToSave));
     } catch {
@@ -202,7 +268,13 @@ export const OoumphProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     activeWorkspaceId,
     allWorkspaces,
     simulationLogs,
-    demoMode
+    demoMode,
+    projects,
+    workflowRuns,
+    integrationConnections,
+    teamMembers,
+    activityEvents,
+    scheduledMeetings
   ]);
 
   const activeWorkspace = allWorkspaces.find((w) => w.id === activeWorkspaceId) || allWorkspaces[0];
@@ -219,8 +291,9 @@ export const OoumphProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     setSimulationLogs((prev) => [newLog, ...prev.slice(0, 49)]);
   };
 
-  const navigate = (view: 'team' | 'work' | 'inbox' | 'business' | 'sales-hub', employeeId?: string | null) => {
-    setCurrentView(view);
+  const navigate = (view: AppView, employeeId?: string | null) => {
+    const target = view === 'sales-hub' ? 'sales' : view;
+    setCurrentView(target);
     if (employeeId !== undefined) {
       setSelectedEmployeeId(employeeId);
     }
@@ -453,6 +526,7 @@ export const OoumphProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const submitWebsiteContactForm = (leadData: { name: string; email: string; company: string; message: string }) => {
     const newLead: LeadProspect = {
       id: `lead-inbound-${Date.now()}`,
+      workspaceId: activeWorkspaceId,
       name: leadData.name,
       title: 'Prospective Client',
       company: leadData.company,
@@ -522,6 +596,7 @@ export const OoumphProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
       newLeadsToAdd.push({
         id: `lead-csv-${Date.now()}-${i}`,
+        workspaceId: activeWorkspaceId,
         name,
         title,
         company,
@@ -619,6 +694,7 @@ export const OoumphProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     if (grantsMarketingConsent || answersQualification) {
       const newLead: LeadProspect = {
         id: `lead-flagship-${Date.now()}`,
+        workspaceId: activeWorkspaceId,
         name: senderUsername.replace(/[@_.]/g, ' ').trim() || 'Social Commenter',
         title: 'Executive Leader',
         company: 'Social Inbound Inquiry',
@@ -742,6 +818,12 @@ export const OoumphProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     setAllWorkspaces(INITIAL_WORKSPACES);
     setActiveWorkspaceId('ws-cedar');
     setDemoModeState('seeded');
+    setProjects(INITIAL_PROJECTS);
+    setWorkflowRuns(INITIAL_WORKFLOW_RUNS);
+    setIntegrationConnections(INITIAL_INTEGRATION_CONNECTIONS);
+    setTeamMembers(INITIAL_TEAM_MEMBERS);
+    setActivityEvents(INITIAL_ACTIVITY_EVENTS);
+    setScheduledMeetings(INITIAL_SCHEDULED_MEETINGS);
     setSimulationLogs([
       {
         id: `log-${Date.now()}`,
@@ -765,6 +847,12 @@ export const OoumphProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       flagshipCampaign,
       deals,
       settings,
+      projects,
+      workflowRuns,
+      integrationConnections,
+      teamMembers,
+      activityEvents,
+      scheduledMeetings,
       simulationLogs
     };
     const blob = new Blob([JSON.stringify(dataToExport, null, 2)], { type: 'application/json' });
@@ -799,6 +887,317 @@ export const OoumphProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     );
   };
 
+  // MULTI-AGENT & PROJECT HANDLERS
+  const advanceWorkflowStep = (runId: string, stepId: string) => {
+    setWorkflowRuns((prev) =>
+      prev.map((run) => {
+        if (run.id !== runId) return run;
+        const stepIndex = run.steps.findIndex((s) => s.id === stepId);
+        if (stepIndex === -1) return run;
+
+        const updatedSteps = [...run.steps];
+        updatedSteps[stepIndex] = { ...updatedSteps[stepIndex], status: 'completed' };
+
+        let nextIndex = stepIndex + 1;
+        let nextStatus: WorkflowRun['status'] = run.status;
+
+        if (nextIndex < updatedSteps.length) {
+          const nextStep = updatedSteps[nextIndex];
+          updatedSteps[nextIndex] = {
+            ...nextStep,
+            status: nextStep.type === 'human_approval' ? 'waiting_approval' : 'in_progress'
+          };
+        } else {
+          nextStatus = 'completed';
+        }
+
+        const completedStep = run.steps[stepIndex];
+        logEvent(
+          completedStep.employeeCode ? `${completedStep.employeeCode} Specialist` : 'Workflow Engine',
+          'Workflow Step Completed',
+          `Completed step "${completedStep.title}" for initiative "${run.title}".`,
+          'success'
+        );
+
+        return {
+          ...run,
+          steps: updatedSteps,
+          currentStepIndex: Math.min(nextIndex, updatedSteps.length - 1),
+          status: nextStatus,
+          completedAt: nextStatus === 'completed' ? new Date().toISOString() : undefined
+        };
+      })
+    );
+  };
+
+  const startWorkflowFromTemplate = (templateId: string, customTitle?: string): string => {
+    const template = workflowTemplates.find((t) => t.id === templateId);
+    if (!template) return '';
+
+    const newRunId = `run-${Date.now()}`;
+    const newProjectId = `proj-${Date.now()}`;
+    const runTitle = customTitle || `${template.name} Execution`;
+
+    const newProject: Project = {
+      id: newProjectId,
+      workspaceId: activeWorkspaceId,
+      title: runTitle,
+      objective: template.outcome,
+      status: 'in_progress',
+      participatingEmployeeIds: template.participatingEmployeeIds,
+      workflowRunId: newRunId,
+      dueAt: new Date(Date.now() + 14 * 86400000).toISOString(),
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      tags: [template.category, 'Multi-Agent']
+    };
+
+    const newSteps = template.expectedSteps.map((step, idx) => ({
+      id: `step-${newRunId}-${idx + 1}`,
+      title: step.title,
+      type: step.type,
+      employeeCode: step.employeeCode,
+      employeeId: employees.find((e) => e.code === step.employeeCode)?.id,
+      description: step.description,
+      status: idx === 0 ? ('in_progress' as const) : ('pending' as const)
+    }));
+
+    const newRun: WorkflowRun = {
+      id: newRunId,
+      workspaceId: activeWorkspaceId,
+      templateId: template.id,
+      templateName: template.name,
+      title: runTitle,
+      status: 'running',
+      projectId: newProjectId,
+      currentStepIndex: 0,
+      steps: newSteps,
+      startedAt: new Date().toISOString()
+    };
+
+    setProjects((prev) => [newProject, ...prev]);
+    setWorkflowRuns((prev) => [newRun, ...prev]);
+
+    logEvent(
+      'Multi-Agent Coordinator',
+      'Workflow Launched',
+      `Initiative "${runTitle}" started with ${template.participatingEmployeeIds.length} coordinated employees.`,
+      'success'
+    );
+
+    return newRunId;
+  };
+
+  const createProject = (projectData: Omit<Project, 'id' | 'createdAt' | 'updatedAt'>) => {
+    const newProject: Project = {
+      ...projectData,
+      id: `proj-${Date.now()}`,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+    setProjects((prev) => [newProject, ...prev]);
+    logEvent('Initiative Lead', 'Project Created', `Objective established: "${newProject.title}"`, 'success');
+  };
+
+  const updateProject = (projectId: string, partial: Partial<Project>) => {
+    setProjects((prev) =>
+      prev.map((p) => (p.id === projectId ? { ...p, ...partial, updatedAt: new Date().toISOString() } : p))
+    );
+  };
+
+  // INTEGRATION & SETTINGS HANDLERS
+  const updateIntegrationStatus = (connectionId: string, status: IntegrationConnection['status'], permissionIssues?: string[]) => {
+    setIntegrationConnections((prev) =>
+      prev.map((c) =>
+        c.id === connectionId
+          ? {
+              ...c,
+              status,
+              permissionIssues: permissionIssues !== undefined ? permissionIssues : c.permissionIssues,
+              lastSyncAt: new Date().toISOString()
+            }
+          : c
+      )
+    );
+  };
+
+  const connectIntegration = (params: {
+    provider: IntegrationProvider;
+    accountName: string;
+    accountHandle?: string;
+    accountType?: string;
+    capabilities?: string[];
+    parentConnectionId?: string;
+  }) => {
+    const newConn: IntegrationConnection = {
+      id: `conn-${params.provider}-${Date.now()}`,
+      workspaceId: activeWorkspaceId,
+      provider: params.provider,
+      accountName: params.accountName,
+      accountHandle: params.accountHandle,
+      accountType: params.accountType || 'Simulated Business Connection',
+      status: 'connected',
+      capabilities: params.capabilities || ['Read Data', 'Publish Content', 'Webhooks'],
+      connectedAt: new Date().toISOString(),
+      lastSyncAt: new Date().toISOString(),
+      parentConnectionId: params.parentConnectionId
+    };
+
+    setIntegrationConnections((prev) => {
+      const filtered = prev.filter((c) => !(c.workspaceId === activeWorkspaceId && c.provider === params.provider && !params.parentConnectionId));
+      return [...filtered, newConn];
+    });
+
+    logEvent('Integration Manager', 'Channel Connected', `Successfully connected ${params.accountName} (${params.provider}).`, 'success');
+  };
+
+  const disconnectIntegration = (connectionId: string) => {
+    const target = integrationConnections.find((c) => c.id === connectionId);
+    if (!target) return;
+    setIntegrationConnections((prev) =>
+      prev.map((c) => (c.id === connectionId ? { ...c, status: 'disconnected', permissionIssues: undefined } : c))
+    );
+    logEvent('Integration Manager', 'Channel Disconnected', `Disconnected ${target.accountName}. Associated automation will pause.`, 'warning');
+  };
+
+  const reconnectIntegration = (connectionId: string) => {
+    const target = integrationConnections.find((c) => c.id === connectionId);
+    if (!target) return;
+    setIntegrationConnections((prev) =>
+      prev.map((c) => (c.id === connectionId ? { ...c, status: 'connected', permissionIssues: undefined, lastSyncAt: new Date().toISOString() } : c))
+    );
+    logEvent('Integration Manager', 'Channel Re-authenticated', `Re-connected ${target.accountName} with refreshed permissions.`, 'success');
+  };
+
+  const inviteTeamMember = (name: string, email: string, role: TeamMember['role']) => {
+    const newMember: TeamMember = {
+      id: `tm-${Date.now()}`,
+      workspaceId: activeWorkspaceId,
+      name,
+      email,
+      role,
+      avatarInitials: name.split(' ').map((n) => n[0]).join('').substring(0, 2).toUpperCase() || 'TM',
+      status: 'invited',
+      invitedAt: new Date().toISOString()
+    };
+    setTeamMembers((prev) => [...prev, newMember]);
+    logEvent('Workspace Admin', 'Collaborator Invited', `Sent invitation to ${name} (${email}) as ${role}.`, 'info');
+  };
+
+  const removeTeamMember = (memberId: string) => {
+    const member = teamMembers.find((m) => m.id === memberId);
+    setTeamMembers((prev) => prev.filter((m) => m.id !== memberId));
+    if (member) {
+      logEvent('Workspace Admin', 'Collaborator Removed', `Removed ${member.name} from workspace seats.`, 'warning');
+    }
+  };
+
+  const updateActionRule = (ruleId: string, requiresApproval: boolean) => {
+    setSettings((prev) => ({
+      ...prev,
+      actionRules: prev.actionRules.map((r) => (r.id === ruleId ? { ...r, requiresApproval } : r))
+    }));
+  };
+
+  const updateEmployeeAutonomyOverride = (employeeId: string, mode: 'default' | 'strict' | 'autonomous') => {
+    setSettings((prev) => {
+      const filtered = prev.employeeOverrides.filter((o) => o.employeeId !== employeeId);
+      return {
+        ...prev,
+        employeeOverrides: [...filtered, { employeeId, mode }]
+      };
+    });
+  };
+
+  const updateWorkspaceDetails = (details: Partial<Workspace>) => {
+    setAllWorkspaces((prev) =>
+      prev.map((ws) => (ws.id === activeWorkspaceId ? { ...ws, ...details } : ws))
+    );
+    logEvent('Business Owner', 'Workspace Details Updated', `Updated core operational parameters for ${details.name || activeWorkspace.name}.`, 'info');
+  };
+
+  // SALES SURFACE HANDLERS
+  const createDeal = (dealData: Omit<Deal, 'id' | 'createdAt' | 'legalReviewSigned' | 'mockCustomerApproved'>) => {
+    const newDeal: Deal = {
+      ...dealData,
+      id: `deal-${Date.now()}`,
+      legalReviewSigned: false,
+      mockCustomerApproved: false,
+      createdAt: new Date().toISOString()
+    };
+    setDeals((prev) => [newDeal, ...prev]);
+    logEvent('Marcus Ward (A09)', 'Deal Created', `Added "${newDeal.title}" ($${newDeal.value.toLocaleString()}) to ${newDeal.stage} stage.`, 'success');
+  };
+
+  const updateDealStage = (dealId: string, stage: Deal['stage']) => {
+    setDeals((prev) =>
+      prev.map((d) => (d.id === dealId ? { ...d, stage } : d))
+    );
+    const deal = deals.find((d) => d.id === dealId);
+    logEvent(
+      'Marcus Ward (A09)',
+      'Deal Stage Advanced',
+      `"${deal?.title || 'Deal'}" advanced to ${stage}.`,
+      stage === 'Closed Won' ? 'success' : 'info'
+    );
+  };
+
+  const simulateNewInboundLead = (data?: Partial<LeadProspect>) => {
+    const names = ['Michael Sterling', 'Amanda Torres', 'Kieran Patel', 'Chloe Davenport'];
+    const companies = ['Northwest Health Systems', 'Acumen Financial', 'Summit Logistics', 'Vertex Design Group'];
+    const idx = Math.floor(Math.random() * names.length);
+    const name = data?.name || names[idx];
+    const company = data?.company || companies[idx];
+    const email = data?.email || `${name.toLowerCase().replace(' ', '.')}@${company.toLowerCase().replace(/[^a-z]/g, '')}.com`;
+
+    const newLead: LeadProspect = {
+      id: `lead-inbound-${Date.now()}`,
+      workspaceId: activeWorkspaceId,
+      name,
+      title: data?.title || 'VP Operations',
+      company,
+      email,
+      phone: '+1 (415) 555-0144',
+      fitScore: data?.fitScore || 92,
+      status: data?.status || 'replied',
+      source: data?.source || 'Inbound Contact Form',
+      touchPoints: 1,
+      notes: data?.notes || 'Inbound request for executive management cohort. Qualified by Jordan Bell (A17).',
+      consents: { marketingEmail: true, whatsapp: true, callback: true },
+      lastContacted: new Date().toISOString()
+    };
+
+    setLeads((prev) => [newLead, ...prev]);
+    logEvent('Jordan Bell (A17)', 'Inbound Lead Qualified', `Simulated new verified inbound lead: ${name} (${company}).`, 'success');
+  };
+
+  const scheduleMeeting = (meetingData: Omit<ScheduledMeeting, 'id'>) => {
+    const newMeet: ScheduledMeeting = {
+      ...meetingData,
+      id: `meet-${Date.now()}`
+    };
+    setScheduledMeetings((prev) => [newMeet, ...prev]);
+
+    if (meetingData.leadId) {
+      setLeads((prev) =>
+        prev.map((l) =>
+          l.id === meetingData.leadId
+            ? { ...l, status: 'meeting_booked', meetingTime: meetingData.dateTime }
+            : l
+        )
+      );
+    }
+
+    logEvent('Aria Vance (A01)', 'Meeting Scheduled', `Confirmed "${newMeet.title}" on ${newMeet.dateTime}. Calendar defense active.`, 'success');
+  };
+
+  const cancelMeeting = (meetingId: string) => {
+    setScheduledMeetings((prev) =>
+      prev.map((m) => (m.id === meetingId ? { ...m, status: 'rescheduled' } : m))
+    );
+    logEvent('Aria Vance (A01)', 'Meeting Slot Freed', `Cancelled meeting #${meetingId}. Calendar buffer restored.`, 'info');
+  };
+
   return (
     <OoumphContext.Provider
       value={{
@@ -826,6 +1225,13 @@ export const OoumphProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         conversations,
         settings,
         simulationLogs,
+        projects,
+        workflowRuns,
+        workflowTemplates,
+        integrationConnections,
+        teamMembers,
+        activityEvents,
+        scheduledMeetings,
         navigate,
         selectEmployee,
         setWorkTab,
@@ -860,7 +1266,25 @@ export const OoumphProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         setDemoMode,
         resetToFactoryDefaults,
         exportWorkspaceJSON,
-        mockClientDecisionOnDeal
+        mockClientDecisionOnDeal,
+        advanceWorkflowStep,
+        startWorkflowFromTemplate,
+        createProject,
+        updateProject,
+        updateIntegrationStatus,
+        connectIntegration,
+        disconnectIntegration,
+        reconnectIntegration,
+        inviteTeamMember,
+        removeTeamMember,
+        updateActionRule,
+        updateEmployeeAutonomyOverride,
+        updateWorkspaceDetails,
+        createDeal,
+        updateDealStage,
+        simulateNewInboundLead,
+        scheduleMeeting,
+        cancelMeeting
       }}
     >
       {children}

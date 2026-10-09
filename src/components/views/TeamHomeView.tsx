@@ -13,7 +13,10 @@ import {
   Filter,
   Send,
   Calendar,
-  Layers
+  Layers,
+  TrendingUp,
+  Plug,
+  Settings as SettingsIcon
 } from 'lucide-react';
 
 export const TeamHomeView: React.FC = () => {
@@ -23,7 +26,11 @@ export const TeamHomeView: React.FC = () => {
     approvals,
     navigate,
     activeWorkspace,
-    sendMessage
+    sendMessage,
+    projects,
+    deals,
+    scheduledMeetings,
+    setWorkTab
   } = useOoumph();
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -186,6 +193,78 @@ export const TeamHomeView: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Connective Operating System Highlights (Cross-Screen Bridges) */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+        <div
+          onClick={() => {
+            navigate('work');
+            setWorkTab('projects');
+          }}
+          className="cursor-pointer rounded-xl border border-slate-200 bg-white p-4 shadow-2xs hover:border-slate-300 hover:shadow-xs transition-all group"
+        >
+          <div className="flex items-center justify-between text-xs text-slate-500 mb-1.5">
+            <span className="font-semibold text-slate-900 flex items-center gap-1.5">
+              <Layers className="h-3.5 w-3.5 text-teal-600" />
+              <span>Multi-Agent Initiatives</span>
+            </span>
+            <span className="text-[10px] bg-slate-100 text-slate-700 px-1.5 py-0.2 rounded font-semibold">
+              {projects.filter(p => p.workspaceId === activeWorkspace.id).length} Active
+            </span>
+          </div>
+          <p className="text-xs text-slate-600 line-clamp-1">
+            {projects[0]?.title || 'Q4 Executive Fellowship Cohort Launch'}
+          </p>
+          <div className="mt-3 flex items-center justify-between text-[11px] text-teal-700 font-medium group-hover:translate-x-0.5 transition-transform">
+            <span>View execution stepper</span>
+            <ArrowRight className="h-3 w-3" />
+          </div>
+        </div>
+
+        <div
+          onClick={() => navigate('sales')}
+          className="cursor-pointer rounded-xl border border-slate-200 bg-white p-4 shadow-2xs hover:border-slate-300 hover:shadow-xs transition-all group"
+        >
+          <div className="flex items-center justify-between text-xs text-slate-500 mb-1.5">
+            <span className="font-semibold text-slate-900 flex items-center gap-1.5">
+              <TrendingUp className="h-3.5 w-3.5 text-indigo-600" />
+              <span>Sales Pipeline & Reviews</span>
+            </span>
+            <span className="text-[10px] bg-indigo-50 text-indigo-700 border border-indigo-200 px-1.5 py-0.2 rounded font-semibold tabular-nums">
+              ${deals.filter(d => d.workspaceId === activeWorkspace.id && d.stage !== 'Closed Won').reduce((acc, d) => acc + d.value, 0).toLocaleString()}
+            </span>
+          </div>
+          <p className="text-xs text-slate-600 line-clamp-1">
+            {scheduledMeetings.filter(m => m.workspaceId === activeWorkspace.id && m.status === 'scheduled').length} upcoming discovery meetings protected
+          </p>
+          <div className="mt-3 flex items-center justify-between text-[11px] text-indigo-700 font-medium group-hover:translate-x-0.5 transition-transform">
+            <span>Open sales hub</span>
+            <ArrowRight className="h-3 w-3" />
+          </div>
+        </div>
+
+        <div
+          onClick={() => navigate('settings')}
+          className="cursor-pointer rounded-xl border border-slate-200 bg-white p-4 shadow-2xs hover:border-slate-300 hover:shadow-xs transition-all group"
+        >
+          <div className="flex items-center justify-between text-xs text-slate-500 mb-1.5">
+            <span className="font-semibold text-slate-900 flex items-center gap-1.5">
+              <Plug className="h-3.5 w-3.5 text-blue-600" />
+              <span>Connected Channels</span>
+            </span>
+            <span className="text-[10px] bg-teal-50 text-teal-700 border border-teal-200 px-1.5 py-0.2 rounded font-semibold">
+              Live Simulated
+            </span>
+          </div>
+          <p className="text-xs text-slate-600 line-clamp-1">
+            Meta Suite, LinkedIn, G-Suite, Twilio & Stripe operational
+          </p>
+          <div className="mt-3 flex items-center justify-between text-[11px] text-blue-700 font-medium group-hover:translate-x-0.5 transition-transform">
+            <span>Configure settings</span>
+            <ArrowRight className="h-3 w-3" />
+          </div>
+        </div>
+      </div>
 
       {/* 3. Recommended Core Team */}
       <div>

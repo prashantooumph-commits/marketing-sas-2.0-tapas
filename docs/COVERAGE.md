@@ -56,3 +56,19 @@
 - **J18**: Confidential Ops / HR / Legal -> Internal NDA redline -> Candidate interview notes -> Private coach isolation check.
 - **J19**: Shared Knowledge Learning -> Feedback on output -> Proposed guideline update -> Approval -> Rollback mechanism.
 - **J20**: Multi-Tenant & Settings -> Switch between Cedar & Co Learning and Acme Craft Goods -> Plan tier switcher -> Export local JSON -> Safe reset.
+
+## Connective Operating System Layer Coverage
+*Frontend completion requires verified end-to-end connected behavior, cross-screen object consistency, and authentic operating system cohesion.*
+
+| Connective Capability | Implementation Artifact | Interactive Features | Impl Status | Test Status | Founder Status |
+|---|---|---|---|---|---|
+| **Clean Primary IA** | `TopBar.tsx`, `App.tsx` | Desktop primary tabs (My Team, My Work, Inbox, Sales, My Business) + Avatar Settings Menu | Completed | Passed | Pending |
+| **Mobile App Shell Navigation** | `App.tsx` | Fixed bottom bar (Team, Work, Inbox with badge, Sales, More sheet) down to 375px width | Completed | Passed | Pending |
+| **Real Settings Surface** | `SettingsView.tsx` | 5 distinct sections: Workspace details, Channel integrations, Autonomy rules, Brand defaults, Team seats | Completed | Passed | Pending |
+| **Simulated Channel Integrations** | `SettingsView.tsx`, `ooumphStore.tsx` | Object-level models, Meta Portfolio -> FB Page -> IG Pro hierarchy, Twilio voice line, Stripe billing, connect/reconnect/disconnect modals | Completed | Passed | Pending |
+| **AI Employee Autonomy & Governance** | `SettingsView.tsx`, `ooumphStore.tsx` | Default tier selector (Strict / Balanced / Autonomous), per-employee overrides, category action rules toggles | Completed | Passed | Pending |
+| **Dedicated Sales Surface** | `SalesView.tsx` | Pipeline Kanban/List with stage advance, Contacts table with fit scores & sequence trigger, Inbound/Outbound dialogs, Scheduled meetings with room links | Completed | Passed | Pending |
+| **Multi-Agent Workflow Templates** | `MyWorkView.tsx`, `seedData.ts` | 5 reusable multi-agent recipes (Flagship Guide, Inbound Booking, Outbound Prospecting, Content Distribution, Onboarding Drip) with instant launcher | Completed | Passed | Pending |
+| **Shared Multi-Agent Projects** | `MyWorkView.tsx`, `ooumphStore.tsx` | Shared objectives (e.g. Q4 Executive Fellowship Launch), participating employee rosters, interactive timeline stepper with step simulation controls | Completed | Passed | Pending |
+| **Cross-Screen Object Consistency** | `ooumphStore.tsx` | Unified Leads across Sales, Outbound & Inbound; synchronized Deals and approvals; workspace-scoped persistence | Completed | Passed | Pending |
+

@@ -1,10 +1,12 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { OoumphProvider, useOoumph } from './store/ooumphStore';
 import { TopBar } from './components/navigation/TopBar';
 import { TeamHomeView } from './components/views/TeamHomeView';
 import { MyWorkView } from './components/views/MyWorkView';
 import { InboxView } from './components/views/InboxView';
+import { SalesView } from './components/views/SalesView';
 import { MyBusinessView } from './components/views/MyBusinessView';
+import { SettingsView } from './components/views/SettingsView';
 import { EmployeeWorkspace } from './components/employee/EmployeeWorkspace';
 import { FlagshipGuideSimulatorModal } from './components/modals/FlagshipGuideSimulatorModal';
 import { OnboardingModal } from './components/modals/OnboardingModal';
@@ -13,15 +15,30 @@ import { CustomerBookingModal } from './components/modals/customer/CustomerBooki
 import { CustomerProposalModal } from './components/modals/customer/CustomerProposalModal';
 import { CustomerPreferenceCenterModal } from './components/modals/customer/CustomerPreferenceCenterModal';
 import { CustomerCheckoutModal } from './components/modals/customer/CustomerCheckoutModal';
-import { SlidersHorizontal, Sparkles } from 'lucide-react';
+import {
+  Users,
+  Layers,
+  Inbox,
+  TrendingUp,
+  MoreHorizontal,
+  SlidersHorizontal,
+  Sparkles,
+  Building2,
+  Settings as SettingsIcon,
+  X
+} from 'lucide-react';
 
 const AppContent: React.FC = () => {
   const {
     currentView,
+    navigate,
     selectedEmployeeId,
     employees,
     activeWorkspace,
+    allWorkspaces,
+    switchWorkspace,
     demoMode,
+    approvals,
     setIsDemoToolsOpen,
     setIsFlagshipSimulatorOpen,
     isCustomerBookingOpen,
@@ -34,17 +51,21 @@ const AppContent: React.FC = () => {
     setIsCustomerCheckoutOpen
   } = useOoumph();
 
+  const [isMobileMoreOpen, setIsMobileMoreOpen] = useState(false);
+
   const selectedEmployee = selectedEmployeeId
     ? employees.find((e) => e.id === selectedEmployeeId)
     : null;
 
+  const pendingApprovalsCount = approvals.filter((a) => a.status === 'pending').length;
+
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col text-slate-900 font-sans selection:bg-slate-900 selection:text-white">
-      {/* Top Navigation */}
+      {/* Top Desktop Navigation */}
       <TopBar />
 
-      {/* Main View Area */}
-      <main className="flex-1">
+      {/* Main View Area (with bottom padding on mobile for the bottom bar) */}
+      <main className="flex-1 pb-16 md:pb-0">
         {selectedEmployee ? (
           <EmployeeWorkspace employee={selectedEmployee} />
         ) : (
@@ -52,13 +73,15 @@ const AppContent: React.FC = () => {
             {currentView === 'team' && <TeamHomeView />}
             {currentView === 'work' && <MyWorkView />}
             {currentView === 'inbox' && <InboxView />}
+            {currentView === 'sales' && <SalesView />}
             {currentView === 'business' && <MyBusinessView />}
+            {currentView === 'settings' && <SettingsView />}
           </>
         )}
       </main>
 
-      {/* Discrete Bottom Demo Status Footer */}
-      <footer className="border-t border-slate-200 bg-white px-6 py-2.5 text-xs text-slate-500 flex flex-col sm:flex-row items-center justify-between gap-2 shrink-0">
+      {/* Discrete Bottom Demo Status Footer (hidden on mobile to make room for bottom nav) */}
+      <footer className="hidden md:flex border-t border-slate-200 bg-white px-6 py-2.5 text-xs text-slate-500 items-center justify-between gap-2 shrink-0">
         <div className="flex items-center gap-2">
           <span className="font-semibold text-slate-800">Ooumph</span>
           <span>·</span>
@@ -70,7 +93,7 @@ const AppContent: React.FC = () => {
         <div className="flex items-center gap-4">
           <button
             onClick={() => setIsFlagshipSimulatorOpen(true)}
-            className="text-teal-700 hover:text-teal-900 font-medium flex items-center gap-1"
+            className="text-teal-700 hover:text-teal-900 font-medium flex items-center gap-1 cursor-pointer"
           >
             <Sparkles className="h-3 w-3" />
             <span>Test Flagship Guide Loop</span>
@@ -78,13 +101,188 @@ const AppContent: React.FC = () => {
           <span>·</span>
           <button
             onClick={() => setIsDemoToolsOpen(true)}
-            className="text-slate-600 hover:text-slate-900 flex items-center gap-1"
+            className="text-slate-600 hover:text-slate-900 flex items-center gap-1 cursor-pointer"
           >
             <SlidersHorizontal className="h-3 w-3" />
             <span>Demo Tools</span>
           </button>
         </div>
       </footer>
+
+      {/* MOBILE BOTTOM NAVIGATION BAR (md:hidden) */}
+      <nav className="fixed bottom-0 inset-x-0 z-40 bg-white/95 backdrop-blur-xs border-t border-slate-200 md:hidden flex items-center justify-around py-1.5 px-2">
+        <button
+          onClick={() => {
+            navigate('team', null);
+            setIsMobileMoreOpen(false);
+          }}
+          className={`flex flex-col items-center justify-center py-1 px-3 rounded-lg text-[10px] font-medium transition-colors ${
+            currentView === 'team' && !selectedEmployee
+              ? 'text-slate-950 font-bold'
+              : 'text-slate-500 hover:text-slate-800'
+          }`}
+        >
+          <Users className="h-4 w-4 mb-0.5" />
+          <span>Team</span>
+        </button>
+
+        <button
+          onClick={() => {
+            navigate('work', null);
+            setIsMobileMoreOpen(false);
+          }}
+          className={`flex flex-col items-center justify-center py-1 px-3 rounded-lg text-[10px] font-medium transition-colors ${
+            currentView === 'work'
+              ? 'text-slate-950 font-bold'
+              : 'text-slate-500 hover:text-slate-800'
+          }`}
+        >
+          <Layers className="h-4 w-4 mb-0.5" />
+          <span>Work</span>
+        </button>
+
+        <button
+          onClick={() => {
+            navigate('inbox', null);
+            setIsMobileMoreOpen(false);
+          }}
+          className={`relative flex flex-col items-center justify-center py-1 px-3 rounded-lg text-[10px] font-medium transition-colors ${
+            currentView === 'inbox'
+              ? 'text-slate-950 font-bold'
+              : 'text-slate-500 hover:text-slate-800'
+          }`}
+        >
+          <Inbox className="h-4 w-4 mb-0.5" />
+          <span>Inbox</span>
+          {pendingApprovalsCount > 0 && (
+            <span className="absolute top-0.5 right-2 h-4 w-4 rounded-full bg-amber-500 text-white font-bold text-[9px] flex items-center justify-center">
+              {pendingApprovalsCount}
+            </span>
+          )}
+        </button>
+
+        <button
+          onClick={() => {
+            navigate('sales', null);
+            setIsMobileMoreOpen(false);
+          }}
+          className={`flex flex-col items-center justify-center py-1 px-3 rounded-lg text-[10px] font-medium transition-colors ${
+            currentView === 'sales'
+              ? 'text-slate-950 font-bold'
+              : 'text-slate-500 hover:text-slate-800'
+          }`}
+        >
+          <TrendingUp className="h-4 w-4 mb-0.5" />
+          <span>Sales</span>
+        </button>
+
+        <button
+          onClick={() => setIsMobileMoreOpen(true)}
+          className={`flex flex-col items-center justify-center py-1 px-3 rounded-lg text-[10px] font-medium transition-colors ${
+            currentView === 'business' || currentView === 'settings' || isMobileMoreOpen
+              ? 'text-slate-950 font-bold'
+              : 'text-slate-500 hover:text-slate-800'
+          }`}
+        >
+          <MoreHorizontal className="h-4 w-4 mb-0.5" />
+          <span>More</span>
+        </button>
+      </nav>
+
+      {/* MOBILE MORE SHEET / MODAL */}
+      {isMobileMoreOpen && (
+        <div className="fixed inset-0 z-50 flex flex-col justify-end bg-slate-950/40 backdrop-blur-xs md:hidden animate-fade-in">
+          <div className="bg-white rounded-t-2xl p-5 border-t border-slate-200 space-y-4 animate-slide-up max-h-[85vh] overflow-y-auto">
+            <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+              <div className="font-bold text-sm text-slate-900">Workspace & Controls</div>
+              <button
+                onClick={() => setIsMobileMoreOpen(false)}
+                className="text-slate-400 hover:text-slate-600 p-1 rounded-lg"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            {/* Workspace Selector */}
+            <div className="space-y-1">
+              <label className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
+                Current Client Workspace
+              </label>
+              <select
+                value={activeWorkspace.id}
+                onChange={(e) => {
+                  switchWorkspace(e.target.value);
+                  setIsMobileMoreOpen(false);
+                }}
+                className="w-full rounded-lg border border-slate-200 bg-slate-50 p-2 text-xs font-medium text-slate-800"
+              >
+                {allWorkspaces.map((ws) => (
+                  <option key={ws.id} value={ws.id}>{ws.name}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Navigation links */}
+            <div className="space-y-2 pt-2">
+              <button
+                onClick={() => {
+                  navigate('business');
+                  setIsMobileMoreOpen(false);
+                }}
+                className="w-full flex items-center gap-3 p-3 rounded-xl border border-slate-200 bg-slate-50/50 hover:bg-slate-50 text-left text-xs font-semibold text-slate-900"
+              >
+                <Building2 className="h-4 w-4 text-slate-600" />
+                <div>
+                  <div>My Business Knowledge</div>
+                  <div className="text-[11px] text-slate-500 font-normal">Brand tone, offers, claims & FAQ library</div>
+                </div>
+              </button>
+
+              <button
+                onClick={() => {
+                  navigate('settings');
+                  setIsMobileMoreOpen(false);
+                }}
+                className="w-full flex items-center gap-3 p-3 rounded-xl border border-slate-200 bg-slate-50/50 hover:bg-slate-50 text-left text-xs font-semibold text-slate-900"
+              >
+                <SettingsIcon className="h-4 w-4 text-slate-600" />
+                <div>
+                  <div>Workspace Settings</div>
+                  <div className="text-[11px] text-slate-500 font-normal">Integrations, autonomy rules & team seats</div>
+                </div>
+              </button>
+
+              <button
+                onClick={() => {
+                  setIsFlagshipSimulatorOpen(true);
+                  setIsMobileMoreOpen(false);
+                }}
+                className="w-full flex items-center gap-3 p-3 rounded-xl border border-teal-200 bg-teal-50/60 hover:bg-teal-50 text-left text-xs font-semibold text-teal-900"
+              >
+                <Sparkles className="h-4 w-4 text-teal-600" />
+                <div>
+                  <div>Test Flagship Guide Loop</div>
+                  <div className="text-[11px] text-teal-700 font-normal">Simulate comment trigger & PDF delivery</div>
+                </div>
+              </button>
+
+              <button
+                onClick={() => {
+                  setIsDemoToolsOpen(true);
+                  setIsMobileMoreOpen(false);
+                }}
+                className="w-full flex items-center gap-3 p-3 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-left text-xs font-semibold text-slate-800"
+              >
+                <SlidersHorizontal className="h-4 w-4 text-slate-600" />
+                <div>
+                  <div>Demo Tools & Scenarios</div>
+                  <div className="text-[11px] text-slate-500 font-normal">Fast forward days, seed modes & reset</div>
+                </div>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Modals & Drawers */}
       <FlagshipGuideSimulatorModal />

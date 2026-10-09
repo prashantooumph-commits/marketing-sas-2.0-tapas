@@ -1,3 +1,5 @@
+export type AppView = 'team' | 'work' | 'inbox' | 'sales' | 'business' | 'settings' | 'sales-hub';
+
 export type EmployeeCategory = 
   | 'Core'
   | 'Sales Operations'
@@ -23,6 +25,15 @@ export interface Employee {
   isCustom?: boolean;
 }
 
+export interface ProductOffer {
+  id: string;
+  name: string;
+  description: string;
+  price: number;
+  type: 'cohort' | 'product' | 'service';
+  seatsAvailable?: number;
+}
+
 export interface Workspace {
   id: string;
   name: string;
@@ -32,6 +43,12 @@ export interface Workspace {
   audience: string;
   brandTone: string;
   approvedClaims: string[];
+  restrictedPhrases?: string[];
+  workingHours?: string;
+  timezone?: string;
+  currency?: string;
+  primaryLanguage?: string;
+  products?: ProductOffer[];
   faqs: { id: string; question: string; answer: string; approved: boolean }[];
   sampleDocs: { id: string; title: string; type: string; content: string }[];
   lessons: { id: string; trigger: string; lesson: string; active: boolean; createdAt: string }[];
@@ -42,6 +59,8 @@ export type TaskStatus = 'pending' | 'in_progress' | 'needs_review' | 'approved'
 
 export interface Task {
   id: string;
+  workspaceId: string;
+  projectId?: string;
   title: string;
   employeeId: string;
   employeeName: string;
@@ -57,6 +76,8 @@ export interface Task {
 
 export interface ApprovalRequest {
   id: string;
+  workspaceId: string;
+  projectId?: string;
   title: string;
   summary: string;
   employeeId: string;
@@ -81,13 +102,18 @@ export interface ConversationMessage {
 }
 
 export interface EmployeeConversation {
+  id: string;
+  workspaceId: string;
   employeeId: string;
+  projectId?: string;
   messages: ConversationMessage[];
   takeover: boolean;
 }
 
 export interface LeadProspect {
   id: string;
+  workspaceId: string;
+  projectId?: string;
   name: string;
   title: string;
   company: string;
@@ -95,7 +121,7 @@ export interface LeadProspect {
   phone?: string;
   fitScore: number;
   status: 'researched' | 'contacted' | 'replied' | 'meeting_booked' | 'opted_out';
-  source: 'Outbound Research' | 'CSV Import' | 'Flagship Comment Guide' | 'Inbound Contact Form' | 'Website Chat';
+  source: 'Outbound Research' | 'CSV Import' | 'Flagship Comment Guide' | 'Inbound Contact Form' | 'Website Chat' | 'Partner Referral';
   touchPoints: number;
   notes: string;
   consents: {
@@ -103,11 +129,13 @@ export interface LeadProspect {
     whatsapp: boolean;
     callback: boolean;
   };
+  meetingTime?: string;
   lastContacted?: string;
 }
 
 export interface WebsitePage {
   id: string;
+  workspaceId: string;
   slug: string;
   title: string;
   heroHeadline: string;
@@ -121,8 +149,11 @@ export interface WebsitePage {
 
 export interface FlagshipCampaign {
   id: string;
+  workspaceId: string;
+  projectId?: string;
   title: string;
   platform: 'Instagram' | 'LinkedIn' | 'Twitter';
+  destinationAccountHandle: string;
   postHeadline: string;
   postCaption: string;
   postImagePrompt: string;
@@ -144,6 +175,8 @@ export interface FlagshipCampaign {
 
 export interface Deal {
   id: string;
+  workspaceId: string;
+  projectId?: string;
   title: string;
   clientName: string;
   contactEmail: string;
@@ -155,25 +188,144 @@ export interface Deal {
   createdAt: string;
 }
 
+export type ProjectStatus = 'planning' | 'in_progress' | 'needs_review' | 'completed' | 'paused';
+
+export interface Project {
+  id: string;
+  workspaceId: string;
+  title: string;
+  objective: string;
+  status: ProjectStatus;
+  ownerHumanId?: string;
+  participatingEmployeeIds: string[];
+  workflowRunId?: string;
+  dueAt?: string;
+  createdAt: string;
+  updatedAt: string;
+  tags?: string[];
+}
+
+export type WorkflowStepType = 'employee_task' | 'human_approval' | 'condition' | 'wait_schedule' | 'handoff';
+
+export interface WorkflowStep {
+  id: string;
+  title: string;
+  type: WorkflowStepType;
+  employeeId?: string;
+  employeeCode?: string;
+  description: string;
+  status: 'pending' | 'in_progress' | 'waiting_approval' | 'completed' | 'skipped';
+  outputArtifactId?: string;
+  approvalRequestId?: string;
+}
+
+export interface WorkflowTemplate {
+  id: string;
+  name: string;
+  outcome: string;
+  shortDescription: string;
+  category: string;
+  participatingEmployeeIds: string[];
+  expectedSteps: { title: string; employeeCode: string; type: WorkflowStepType; description: string }[];
+  approvalPoints: string[];
+  typicalDuration: string;
+}
+
+export interface WorkflowRun {
+  id: string;
+  workspaceId: string;
+  templateId: string;
+  templateName: string;
+  title: string;
+  status: 'running' | 'paused' | 'completed';
+  projectId: string;
+  currentStepIndex: number;
+  steps: WorkflowStep[];
+  startedAt: string;
+  completedAt?: string;
+}
+
+export type IntegrationProvider = 
+  | 'google_workspace'
+  | 'gmail'
+  | 'google_calendar'
+  | 'meta_business'
+  | 'facebook_page'
+  | 'instagram_pro'
+  | 'linkedin_page'
+  | 'whatsapp_business'
+  | 'google_ads'
+  | 'website_cms'
+  | 'voice_twilio'
+  | 'stripe_billing';
+
+export interface IntegrationConnection {
+  id: string;
+  workspaceId: string;
+  provider: IntegrationProvider;
+  accountName: string;
+  accountHandle?: string;
+  accountType: string;
+  status: 'connected' | 'needs_attention' | 'expired' | 'disconnected';
+  capabilities: string[];
+  lastSyncAt?: string;
+  connectedAt?: string;
+  permissionIssues?: string[];
+  parentConnectionId?: string; // e.g. Meta Business -> Page -> Instagram
+}
+
+export interface TeamMember {
+  id: string;
+  workspaceId: string;
+  name: string;
+  email: string;
+  role: 'owner' | 'admin' | 'member' | 'client_viewer';
+  avatarInitials: string;
+  status: 'active' | 'invited';
+  invitedAt: string;
+}
+
+export interface ActivityEvent {
+  id: string;
+  workspaceId: string;
+  projectId?: string;
+  actorName: string;
+  actorType: 'employee' | 'human' | 'system';
+  action: string;
+  details: string;
+  timestamp: string;
+}
+
+export interface AutonomyActionRule {
+  id: string;
+  category: string;
+  description: string;
+  requiresApproval: boolean;
+}
+
+export interface EmployeeAutonomyOverride {
+  employeeId: string;
+  mode: 'default' | 'strict' | 'autonomous';
+}
+
 export interface UserSettings {
   timezone: string;
   currency: string;
   workingHours: string;
+  primaryLanguage: string;
   autonomyLevel: 'Strict (Confirm Every Action)' | 'Balanced (Auto Draft, Confirm High-Risk)' | 'Autonomous (Execute Routine)';
   planTier: 'Starter' | 'Growth' | 'Scale';
   activeWorkspaceId: string;
   notificationPreferences: {
-    emailDigest: boolean;
-    slackAlerts: boolean;
-    highRiskApprovals: boolean;
+    approvals: boolean;
+    workflowFailures: boolean;
+    qualifiedLeads: boolean;
+    inboundCalls: boolean;
+    budgetAlerts: boolean;
+    dailyDigest: boolean;
   };
-  simulatedConnections: {
-    googleWorkspace: boolean;
-    metaBusiness: boolean;
-    linkedInPages: boolean;
-    stripeBilling: boolean;
-    twilioSms: boolean;
-  };
+  employeeOverrides: EmployeeAutonomyOverride[];
+  actionRules: AutonomyActionRule[];
 }
 
 export interface SimulationLogEvent {
@@ -183,4 +335,23 @@ export interface SimulationLogEvent {
   action: string;
   details: string;
   type: 'info' | 'success' | 'warning' | 'pause';
+}
+
+export interface ScheduledMeeting {
+  id: string;
+  workspaceId: string;
+  projectId?: string;
+  title: string;
+  leadId?: string;
+  leadName: string;
+  leadCompany: string;
+  leadEmail: string;
+  hostEmployeeId: string;
+  hostEmployeeName: string;
+  hostEmployeeCode: string;
+  dateTime: string;
+  durationMinutes: number;
+  meetingLink: string;
+  agenda: string;
+  status: 'scheduled' | 'completed' | 'rescheduled';
 }

@@ -15,6 +15,11 @@ export const INITIAL_WORKSPACES: Workspace[] = [
       'Faculty includes former Fortune 500 VPs and recognized operational specialists.',
       'Small group cohort cap: maximum 24 fellows per intensive session.'
     ],
+    restrictedPhrases: ['cheap', 'guaranteed wealth', 'zero effort', 'game-changing', 'synergy'],
+    workingHours: '09:00 - 18:00 PST (Mon - Fri)',
+    timezone: 'America/Los_Angeles (PST)',
+    currency: 'USD ($)',
+    primaryLanguage: 'English (US)',
     faqs: [
       {
         id: 'faq-1',
@@ -88,6 +93,11 @@ export const INITIAL_WORKSPACES: Workspace[] = [
       'Lifetime warranty on all solid brass hardware and hand-stitched seams.',
       'Handcrafted in small batches of 50 units in Portland, Oregon.'
     ],
+    restrictedPhrases: ['synthetic', 'cheap pleather', 'mass production', 'disposable'],
+    workingHours: '08:00 - 17:00 PST (Mon - Fri)',
+    timezone: 'America/Los_Angeles (PST)',
+    currency: 'USD ($)',
+    primaryLanguage: 'English (US)',
     faqs: [
       {
         id: 'acme-faq-1',
