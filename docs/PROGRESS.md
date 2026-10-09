@@ -110,3 +110,43 @@
 
 ## Next Phase
 - **Settings + connected account experience and shared integration context.**
+
+## Phase 2A Execution: Focused Task Chooser, Goal Intent Calibration, Human-in-the-Loop & Team Roles Log
+
+### Exact Files Changed
+1. `src/components/modals/EmployeeChooserModal.tsx` (New Component):
+   - Created full-featured specialist chooser with search (name, title, code, capability, "best for" bio), category tabs (All, Core, Sales Operations, Growth & Marketing, Content & Creative, Operations & Support, Strategy & Commerce), and recommended matches based on user task input.
+   - Every card displays: avatar identity, name, role title, category, one-line "Best for", 3 concise capability bullet examples, and 2 direct starter task buttons.
+   - Provides both "View employee" (navigates to workspace) and "Assign task" (prefills task into workspace chat and selects employee).
+   - Mobile-responsive full sheet experience.
+2. `src/data/goalIntents.ts` (New Data Layer):
+   - Deterministic local intent classification and profiles covering 15 distinct business intents: `BRAND_FOUNDATION`, `WEBSITE_LAUNCH`, `SEO_VISIBILITY`, `AEO_GEO_VISIBILITY`, `CONTENT_ENGINE`, `AWARENESS_CAMPAIGN`, `LEAD_GENERATION`, `PRODUCT_LAUNCH`, `ECOMMERCE_GROWTH`, `EVENT_WEBINAR`, `OUTBOUND_SALES`, `INBOUND_SALES`, `RETENTION_RENEWAL`, `REPUTATION_MANAGEMENT`, and `CUSTOM`.
+   - Each intent recommends: suitable workflow/playbook, dedicated AI employee roster with responsibilities, proposed stages with human approval gates, required integration connections, deliverables, and success metrics.
+3. `src/components/modals/GoalPlannerModal.tsx`:
+   - Upgraded into a complete 4-stage wizard:
+     1. *Outcome*: Goal text, intent selector, optional offer, audience, geography, channels, deadline, and approximate budget.
+     2. *Team*: Recommended AI specialists with editable responsibilities, reorder and add/remove controls, plus human teammates assignment with project roles (`project_owner`, `contributor`, `approver`, `viewer`) and dedicated human approver selection.
+     3. *Plan*: Playbook picker, deliverables checklist, success metrics, proposed stages (with employee tasks and human approval points), required connections status, and 5 customizable governance approval policies.
+     4. *Review*: Final executive plan summary with scope recap, specialist assignments, and initial handoff preview.
+   - On "Create project": creates Project, attaches chosen/recommended workflow, creates attached `WorkflowRun` (`ready_to_start`), stages project-scoped tasks, creates initial policy approval gate in Inbox, sets project status to `ready`, routes to `MyWorkView` Projects tab with new project selected.
+4. `src/store/ooumphStore.tsx`:
+   - Added modal state and actions for Employee Chooser (`isEmployeeChooserOpen`, `setIsEmployeeChooserOpen`, `employeeChooserInitialTask`, `setEmployeeChooserInitialTask`).
+   - Implemented `startProject(projectId)` which activates execution, advances status from `ready` to `in_progress`, starts the linked `WorkflowRun`, and activates milestone 1.
+   - Implemented `requestChangesOnApproval(approvalId, feedback)` which records feedback, rejects proposed action, notifies the employee via direct workspace message, and logs the change request.
+   - Added `createProjectTask`, `createApprovalRequest`, and `createWorkflowRun` helper actions.
+5. `src/components/views/MyWorkView.tsx`:
+   - Updated Project container to display explicit "Ready to Start" badge (`bg-amber-50 text-amber-900 border-amber-300`).
+   - Rendered explicit "Plan Ready to Execute" banner informing user that execution has NOT silently begun in the background.
+   - Added prominent, accessible "Start Project" action button in both Project Header and banner that triggers `startProject()`.
+6. `src/components/views/TeamHomeView.tsx`:
+   - Wired Option 1 ("Choose employee / Start task") directly to `EmployeeChooserModal` with optional task context.
+   - Updated clarification and intent handlers to launch the Employee Chooser instead of silently defaulting.
+7. `src/components/views/InboxView.tsx`:
+   - Added interactive "Request Changes" action to pending approval cards with inline feedback drawer.
+   - Enhanced Decision History to render operator revision feedback notes alongside approvals and rejections.
+8. `src/App.tsx`:
+   - Mounted `EmployeeChooserModal`.
+
+### Verification
+- `compile_applet`: Passed.
+- `lint_applet`: Passed (0 errors, 0 warnings).

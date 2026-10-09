@@ -35,7 +35,9 @@ export const TeamHomeView: React.FC = () => {
     setWorkTab,
     setIsGoalPlannerOpen,
     setGoalPlannerInitialGoal,
-    setIsProductGuideOpen
+    setIsProductGuideOpen,
+    setIsEmployeeChooserOpen,
+    setEmployeeChooserInitialTask
   } = useOoumph();
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -275,8 +277,8 @@ export const TeamHomeView: React.FC = () => {
 
             <button
               onClick={() => {
-                const defaultEmp = employees.find((e) => e.code === 'A02') || employees[0];
-                selectEmployee(defaultEmp.id);
+                setEmployeeChooserInitialTask(globalTaskInput);
+                setIsEmployeeChooserOpen(true);
               }}
               className="w-full flex items-center justify-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3.5 py-2 text-xs font-semibold text-slate-900 hover:bg-slate-100 hover:border-slate-400 transition-colors cursor-pointer shadow-2xs"
             >

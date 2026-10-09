@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { useOoumph } from '../../store/ooumphStore';
-import { TaskStatus, Project, WorkflowRun, WorkflowTemplate } from '../../types';
+import { TaskStatus, Project, WorkflowRun, WorkflowTemplate, BusinessSolution } from '../../types';
+import { BusinessSolutionCard } from '../workflows/BusinessSolutionCard';
+import { WorkflowCard } from '../workflows/WorkflowCard';
 import {
   Calendar as CalendarIcon,
   CheckCircle2,
@@ -29,6 +31,11 @@ import {
   X,
   User,
   ShieldAlert,
+  ShieldCheck,
+  Plug,
+  RefreshCw,
+  UserPlus,
+  RotateCcw,
   Info
 } from 'lucide-react';
 
@@ -47,8 +54,31 @@ export const MyWorkView: React.FC = () => {
     projects,
     workflowRuns,
     workflowTemplates,
+    businessSolutions,
+    selectedSolutionId,
+    setSelectedSolutionId,
+    selectedWorkflowTemplateId,
+    setSelectedWorkflowTemplateId,
+    isSolutionDetailOpen,
+    setIsSolutionDetailOpen,
+    isWorkflowDetailOpen,
+    setIsWorkflowDetailOpen,
+    setGoalPlannerInitialGoal,
+    approvals,
+    approveRequest,
+    rejectRequest,
+    requestChangesOnApproval,
     advanceWorkflowStep,
     startWorkflowFromTemplate,
+    openWorkflowSetup,
+    openBusinessSolutionSetup,
+    openAddTeammateModal,
+    advanceWorkflowPhase,
+    addWorkflowToProject,
+    retryBlockedStep,
+    skipOptionalStep,
+    submitRevisionForStep,
+    startProject,
     activityEvents,
     navigate,
     selectedProjectId,
@@ -61,6 +91,16 @@ export const MyWorkView: React.FC = () => {
   const [projectSubTab, setProjectSubTab] = useState<'overview' | 'workflow' | 'tasks' | 'assets' | 'activity' | 'results'>('overview');
   const [workflowCategoryFilter, setWorkflowCategoryFilter] = useState<string>('All');
   const [placeholderModalInfo, setPlaceholderModalInfo] = useState<{ title: string; description: string } | null>(null);
+  const [activeProjectChangeRequestId, setActiveProjectChangeRequestId] = useState<string | null>(null);
+  const [projectFeedbackText, setProjectFeedbackText] = useState('');
+  const [activeStepRevisionId, setActiveStepRevisionId] = useState<string | null>(null);
+  const [stepRevisionText, setStepRevisionText] = useState('');
+
+  // Outcome-First Library State (Prompt 2B.1)
+  const [selectedOutcomeCategoryId, setSelectedOutcomeCategoryId] = useState<string>('all');
+  const [libraryViewMode, setLibraryViewMode] = useState<'solutions' | 'workflows' | 'all'>('solutions');
+  const [workflowSearchQuery, setWorkflowSearchQuery] = useState<string>('');
+  const [complexityFilter, setComplexityFilter] = useState<'all' | 'starter' | 'moderate' | 'advanced'>('all');
 
   // Filter tasks
   const filteredTasks = tasks.filter((task) => {
@@ -83,39 +123,152 @@ export const MyWorkView: React.FC = () => {
     (t) => t.projectId === currentProject?.id || (currentProject?.participatingEmployeeIds.includes(t.employeeId))
   );
 
-  // Workflow categories
+  // Pending approvals blocking this project
+  const projectPendingApprovals = approvals.filter(
+    (a) =>
+      a.status === 'pending' &&
+      (a.projectId === currentProject?.id ||
+        (currentWorkflowRun && a.workflowRunId === currentWorkflowRun.id) ||
+        (currentProject && currentProject.participatingEmployeeIds.includes(a.employeeId)))
+  );
+
+  // Outcome Categories for Prompt 2B.1
+  const OUTCOME_CATEGORIES = [
+    { id: 'all', label: 'All Outcomes', solutionCategory: null, shortLabel: 'All Outcomes' },
+    { id: 'launch_business', label: 'Start or launch my business', solutionCategory: 'Launch my business', shortLabel: 'Launch Business' },
+    { id: 'build_website', label: 'Build or improve my website', solutionCategory: 'Build my website', shortLabel: 'Build / Upgrade Website' },
+    { id: 'create_content', label: 'Create consistent content', solutionCategory: 'Create content', shortLabel: 'Create Content' },
+    { id: 'seo_ai_visibility', label: 'Improve SEO / AI visibility', solutionCategory: 'Get found on Google & AI', shortLabel: 'SEO & AI Visibility' },
+    { id: 'brand_awareness', label: 'Grow brand awareness', solutionCategory: 'Grow awareness', shortLabel: 'Grow Awareness' },
+    { id: 'generate_leads', label: 'Generate leads', solutionCategory: 'Generate leads', shortLabel: 'Generate Leads' },
+    { id: 'turn_meetings', label: 'Turn engagement into meetings', solutionCategory: 'Turn engagement into meetings', shortLabel: 'Engagement to Meetings' },
+    { id: 'launch_product', label: 'Launch a product or offer', solutionCategory: 'Launch a product', shortLabel: 'Launch Product / Offer' },
+    { id: 'sell_online', label: 'Sell products online', solutionCategory: 'Sell products online', shortLabel: 'Sell Products Online' },
+    { id: 'outbound_sales', label: 'Grow outbound sales', solutionCategory: 'Run outbound sales', shortLabel: 'Outbound Sales' },
+    { id: 'nurture_leads', label: 'Nurture existing leads', solutionCategory: 'Nurture leads', shortLabel: 'Nurture Leads' },
+    { id: 'retain_customers', label: 'Improve customer retention', solutionCategory: 'Retain customers', shortLabel: 'Retain Customers' },
+    { id: 'reputation', label: 'Manage brand reputation', solutionCategory: 'Manage reputation', shortLabel: 'Manage Reputation' },
+    { id: 'event_webinar', label: 'Run an event or webinar', solutionCategory: 'Run an event', shortLabel: 'Event or Webinar' },
+    { id: 'operations', label: 'Improve internal operations', solutionCategory: 'Operate my business', shortLabel: 'Internal Operations' },
+  ];
+
+  // Functional Workflow categories
   const workflowCategories = [
     'All',
-    'Recommended',
-    'Marketing',
-    'Sales',
-    'Operations',
-    'Customer Lifecycle',
+    'Brand & Strategy',
+    'Web & Digital',
+    'Content & Social',
+    'SEO & Answer Engine Visibility',
+    'Paid Demand & Growth',
+    'Events & Lifecycle',
+    'Sales & Pipeline',
+    'E-Commerce & Merchandising',
+    'Customer Success',
+    'Business Operations',
     'My templates'
   ];
 
-  const getFilteredTemplates = () => {
-    if (workflowCategoryFilter === 'All') return workflowTemplates;
-    if (workflowCategoryFilter === 'Recommended') {
-      return workflowTemplates.filter((t) => ['wf-comment-to-lead', 'wf-content-engine', 'wf-outbound-sales'].includes(t.id));
+  // Filter Business Solutions
+  const filteredBusinessSolutions = businessSolutions.filter((solution) => {
+    if (selectedOutcomeCategoryId !== 'all') {
+      const activeOutcome = OUTCOME_CATEGORIES.find((c) => c.id === selectedOutcomeCategoryId);
+      if (activeOutcome?.solutionCategory) {
+        if (solution.outcomeCategory.toLowerCase() !== activeOutcome.solutionCategory.toLowerCase()) {
+          return false;
+        }
+      }
     }
-    if (workflowCategoryFilter === 'Marketing') {
-      return workflowTemplates.filter((t) => ['wf-content-engine', 'wf-product-launch', 'wf-paid-acquisition'].includes(t.id));
+
+    if (workflowSearchQuery.trim()) {
+      const q = workflowSearchQuery.toLowerCase();
+      const matchText = [
+        solution.title,
+        solution.shortPromise,
+        solution.description,
+        solution.code,
+        solution.bestFor,
+        ...(solution.tags || []),
+        solution.outcomeCategory
+      ].join(' ').toLowerCase();
+
+      const employeeMatch = solution.employeeIds.some((id) => {
+        const emp = employees.find((e) => e.id === id);
+        return emp && (emp.name.toLowerCase().includes(q) || emp.code.toLowerCase().includes(q) || emp.title.toLowerCase().includes(q));
+      });
+
+      if (!matchText.includes(q) && !employeeMatch) return false;
     }
-    if (workflowCategoryFilter === 'Sales') {
-      return workflowTemplates.filter((t) => ['wf-outbound-sales', 'wf-product-launch', 'wf-comment-to-lead'].includes(t.id));
+
+    if (complexityFilter !== 'all' && solution.complexity !== complexityFilter) {
+      return false;
     }
-    if (workflowCategoryFilter === 'Operations') {
-      return workflowTemplates.filter((t) => ['wf-webinar-event', 'wf-customer-onboarding'].includes(t.id));
+
+    return true;
+  });
+
+  // Filter Workflows
+  const filteredWorkflows = workflowTemplates.filter((wf) => {
+    if (selectedOutcomeCategoryId !== 'all') {
+      const activeOutcome = OUTCOME_CATEGORIES.find((c) => c.id === selectedOutcomeCategoryId);
+      if (activeOutcome?.solutionCategory) {
+        const matchingSolutions = businessSolutions.filter(
+          (s) => s.outcomeCategory.toLowerCase() === activeOutcome.solutionCategory?.toLowerCase()
+        );
+        const includedInMatchingSolutions = matchingSolutions.some((s) =>
+          s.workflowTemplateIds.includes(wf.id)
+        );
+
+        const categoryMatches =
+          wf.outcomeCategory?.toLowerCase() === activeOutcome.solutionCategory.toLowerCase() ||
+          wf.category.toLowerCase().includes(activeOutcome.solutionCategory.toLowerCase());
+
+        if (!includedInMatchingSolutions && !categoryMatches) return false;
+      }
     }
-    if (workflowCategoryFilter === 'Customer Lifecycle') {
-      return workflowTemplates.filter((t) => ['wf-customer-onboarding', 'wf-comment-to-lead'].includes(t.id));
+
+    if (workflowCategoryFilter !== 'All') {
+      if (workflowCategoryFilter === 'My templates') {
+        return false;
+      }
+      if (wf.category !== workflowCategoryFilter) {
+        return false;
+      }
     }
-    if (workflowCategoryFilter === 'My templates') {
-      return []; // empty state
+
+    if (workflowSearchQuery.trim()) {
+      const q = workflowSearchQuery.toLowerCase();
+      const matchText = [
+        wf.title || wf.name,
+        wf.code || '',
+        wf.outcome,
+        wf.shortDescription,
+        wf.description || '',
+        wf.category,
+        wf.bestFor || '',
+        ...(wf.tags || [])
+      ].join(' ').toLowerCase();
+
+      const employeeMatch = (wf.participatingEmployeeIds || []).some((id) => {
+        const emp = employees.find((e) => e.id === id);
+        return emp && (emp.name.toLowerCase().includes(q) || emp.code.toLowerCase().includes(q) || emp.title.toLowerCase().includes(q));
+      });
+
+      if (!matchText.includes(q) && !employeeMatch) return false;
     }
-    return workflowTemplates;
-  };
+
+    if (complexityFilter !== 'all') {
+      const compMap: Record<string, string> = {
+        starter: 'simple',
+        moderate: 'moderate',
+        advanced: 'comprehensive'
+      };
+      if (wf.complexity && wf.complexity !== compMap[complexityFilter] && wf.complexity !== complexityFilter) {
+        return false;
+      }
+    }
+
+    return true;
+  });
 
   return (
     <div className="max-w-7xl mx-auto px-6 py-8 space-y-6">
@@ -226,12 +379,14 @@ export const MyWorkView: React.FC = () => {
                           className={`text-[10px] font-bold px-2 py-0.5 rounded ${
                             proj.status === 'in_progress'
                               ? 'bg-teal-50 text-teal-800 border border-teal-200'
+                              : proj.status === 'ready'
+                              ? 'bg-amber-50 text-amber-900 border border-amber-300 ring-1 ring-amber-400/30'
                               : proj.status === 'completed'
                               ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
                               : 'bg-slate-100 text-slate-700'
                           }`}
                         >
-                          {proj.status === 'in_progress' ? 'In Progress' : proj.status === 'planning' ? 'Planning' : 'Completed'}
+                          {proj.status === 'in_progress' ? 'In Progress' : proj.status === 'ready' ? 'Ready to Start' : proj.status === 'planning' ? 'Planning' : 'Completed'}
                         </span>
                         <h3 className="font-bold text-xs text-slate-900 truncate mt-1">{proj.title}</h3>
                         <p className="text-[11px] text-slate-500 line-clamp-2">{proj.objective}</p>
@@ -275,7 +430,15 @@ export const MyWorkView: React.FC = () => {
 
                   {/* Primary Project Action (Requirement I) */}
                   <div className="shrink-0">
-                    {currentWorkflowRun ? (
+                    {currentProject.status === 'ready' ? (
+                      <button
+                        onClick={() => startProject(currentProject.id)}
+                        className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-teal-800 text-white text-xs font-semibold hover:bg-teal-900 transition-colors shadow-xs cursor-pointer ring-2 ring-teal-500/30"
+                      >
+                        <Play className="h-3.5 w-3.5 fill-current" />
+                        <span>Start Project</span>
+                      </button>
+                    ) : currentWorkflowRun ? (
                       <button
                         onClick={() => setProjectSubTab('workflow')}
                         className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-slate-900 text-white text-xs font-semibold hover:bg-slate-800 transition-colors shadow-2xs cursor-pointer"
@@ -297,6 +460,28 @@ export const MyWorkView: React.FC = () => {
                     )}
                   </div>
                 </div>
+
+                {/* Explicit Ready to Start banner */}
+                {currentProject.status === 'ready' && (
+                  <div className="rounded-xl border border-amber-300 bg-amber-50/80 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs animate-fade-in">
+                    <div className="space-y-0.5">
+                      <div className="font-bold text-amber-950 flex items-center gap-1.5">
+                        <Sparkles className="h-4 w-4 text-amber-700 shrink-0" />
+                        <span>Team Plan Staged — Ready to Start</span>
+                      </div>
+                      <p className="text-amber-900 text-[11px] leading-relaxed">
+                        AI specialists, responsibilities, and deliverables are staged. <strong>Execution has NOT silently begun</strong> in the background. Review your plan below and click <strong>"Start Project"</strong> when ready to launch.
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => startProject(currentProject.id)}
+                      className="shrink-0 flex items-center gap-1.5 px-4 py-2 rounded-lg bg-slate-950 hover:bg-slate-800 text-white text-xs font-bold transition-all shadow-xs cursor-pointer"
+                    >
+                      <Play className="h-3.5 w-3.5 fill-current" />
+                      <span>Start Project</span>
+                    </button>
+                  </div>
+                )}
 
                 {/* Project Internal Tabs (Requirement E) */}
                 <div className="flex items-center gap-1 border-b border-slate-200 pb-2 overflow-x-auto text-xs font-medium text-slate-600">
@@ -334,6 +519,147 @@ export const MyWorkView: React.FC = () => {
                 {/* 1. PROJECT OVERVIEW TAB */}
                 {projectSubTab === 'overview' && (
                   <div className="space-y-5 animate-fade-in text-xs">
+                    {/* Needs You Area (Human-in-the-loop Gate) */}
+                    {projectPendingApprovals.length > 0 && (
+                      <div className="rounded-xl border-2 border-amber-400 bg-amber-50/90 p-4 space-y-3 shadow-xs">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <span className="flex h-6 w-6 items-center justify-center rounded-full bg-amber-500 text-white font-bold text-xs">!</span>
+                            <div>
+                              <h4 className="text-xs font-bold text-amber-950 uppercase tracking-wider">
+                                Needs You · Human Approval Required ({projectPendingApprovals.length})
+                              </h4>
+                              <p className="text-[11px] text-amber-900">
+                                Autonomous execution is currently paused. An assigned human gatekeeper must review and authorize the following item(s) before workflow progression resumes.
+                              </p>
+                            </div>
+                          </div>
+                          <button
+                            onClick={() => navigate('inbox')}
+                            className="hidden sm:inline-flex items-center gap-1 text-[11px] font-semibold text-amber-900 hover:text-amber-950 hover:underline cursor-pointer"
+                          >
+                            <span>Open Inbox Review Queue →</span>
+                          </button>
+                        </div>
+
+                        <div className="space-y-2.5 pt-1">
+                          {projectPendingApprovals.map((req) => (
+                            <div key={req.id} className="rounded-lg border border-amber-300 bg-white p-3.5 space-y-2 shadow-2xs">
+                              <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-2">
+                                <div>
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded bg-amber-100 text-amber-900 border border-amber-200">
+                                      {req.artifactType.replace('_', ' ')}
+                                    </span>
+                                    <span className="font-semibold text-xs text-slate-900">{req.summary}</span>
+                                  </div>
+                                  <div className="text-[11px] text-slate-500 mt-1">
+                                    Prepared by <strong>{req.employeeName}</strong>
+                                    {req.reviewedBy && <span> · Approver: <strong className="text-slate-700">{req.reviewedBy}</strong></span>}
+                                  </div>
+                                </div>
+                              </div>
+
+                              {req.contextNote && (
+                                <p className="text-[11px] text-slate-600 bg-slate-50 p-2 rounded border border-slate-200 italic">
+                                  "{req.contextNote}"
+                                </p>
+                              )}
+
+                              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-2 border-t border-slate-100">
+                                <button
+                                  onClick={() => selectEmployee(req.employeeId)}
+                                  className="text-[11px] text-indigo-700 hover:underline font-medium text-left"
+                                >
+                                  Inspect in {req.employeeName}'s Workspace →
+                                </button>
+
+                                <div className="flex items-center gap-2">
+                                  <button
+                                    onClick={() => {
+                                      if (activeProjectChangeRequestId === req.id) {
+                                        setActiveProjectChangeRequestId(null);
+                                      } else {
+                                        setActiveProjectChangeRequestId(req.id);
+                                        setProjectFeedbackText('');
+                                      }
+                                    }}
+                                    className={`flex items-center gap-1 rounded-md border px-2.5 py-1 text-xs font-medium transition-colors ${
+                                      activeProjectChangeRequestId === req.id
+                                        ? 'bg-amber-100 text-amber-900 border-amber-300'
+                                        : 'border-slate-200 text-slate-700 hover:bg-slate-50'
+                                    }`}
+                                  >
+                                    <RotateCcw className="h-3 w-3" />
+                                    <span>Request Changes</span>
+                                  </button>
+
+                                  <button
+                                    onClick={() => rejectRequest(req.id)}
+                                    className="rounded-md border border-slate-200 px-2.5 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50"
+                                  >
+                                    Reject
+                                  </button>
+
+                                  <button
+                                    onClick={() => approveRequest(req.id)}
+                                    className="flex items-center gap-1 rounded-md bg-slate-950 px-3 py-1 text-xs font-bold text-white hover:bg-slate-800 shadow-2xs cursor-pointer"
+                                  >
+                                    <CheckCircle2 className="h-3 w-3" />
+                                    <span>Authorize</span>
+                                  </button>
+                                </div>
+                              </div>
+
+                              {/* Inline Change Request Box */}
+                              {activeProjectChangeRequestId === req.id && (
+                                <div className="mt-2 p-3 rounded-lg border border-amber-300 bg-amber-50 space-y-2">
+                                  <div className="flex items-center justify-between font-semibold text-amber-900 text-[11px]">
+                                    <span>Provide required revisions for {req.employeeName}:</span>
+                                    <button
+                                      type="button"
+                                      onClick={() => setActiveProjectChangeRequestId(null)}
+                                      className="text-amber-700 hover:text-amber-900"
+                                    >
+                                      <X className="h-3.5 w-3.5" />
+                                    </button>
+                                  </div>
+                                  <textarea
+                                    rows={2}
+                                    value={projectFeedbackText}
+                                    onChange={(e) => setProjectFeedbackText(e.target.value)}
+                                    placeholder={`Enter specific change instructions for ${req.employeeName}...`}
+                                    className="w-full rounded border border-amber-300 bg-white p-2 text-xs text-slate-900 placeholder:text-slate-400 focus:outline-hidden"
+                                  />
+                                  <div className="flex justify-end gap-2">
+                                    <button
+                                      type="button"
+                                      onClick={() => setActiveProjectChangeRequestId(null)}
+                                      className="px-2 py-0.5 text-xs text-slate-600 hover:text-slate-800"
+                                    >
+                                      Cancel
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        requestChangesOnApproval(req.id, projectFeedbackText.trim() || 'Changes requested by reviewer.');
+                                        setActiveProjectChangeRequestId(null);
+                                        setProjectFeedbackText('');
+                                      }}
+                                      disabled={!projectFeedbackText.trim()}
+                                      className="px-3 py-1 bg-amber-800 hover:bg-amber-900 disabled:opacity-50 text-white rounded text-xs font-semibold"
+                                    >
+                                      Submit Revisions
+                                    </button>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
                     {/* Next Important Action Box */}
                     {currentProject.nextImportantAction && (
                       <div className="rounded-xl border border-teal-200 bg-teal-50/50 p-4 space-y-1">
@@ -411,6 +737,161 @@ export const MyWorkView: React.FC = () => {
                         })}
                       </div>
                     </div>
+
+                    {/* Human Oversight & Workspace Team Collaborators */}
+                    <div className="space-y-2.5 pt-2">
+                      <div className="flex items-center justify-between">
+                        <div className="font-bold text-slate-900 uppercase tracking-wider text-[11px] flex items-center gap-1.5">
+                          <Users className="h-3.5 w-3.5 text-slate-600" />
+                          <span>Human Workspace Team & Oversight Roles</span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => openAddTeammateModal(currentProject.id)}
+                          className="flex items-center gap-1 text-[11px] font-bold text-teal-800 hover:text-teal-950 bg-teal-50 border border-teal-200/80 px-2.5 py-1 rounded-lg transition-colors cursor-pointer"
+                        >
+                          <UserPlus className="h-3 w-3" />
+                          <span>+ Add Teammate</span>
+                        </button>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                        {(currentProject.collaborators && currentProject.collaborators.length > 0
+                          ? currentProject.collaborators
+                          : [
+                              {
+                                teamMemberId: 'tm-1',
+                                name: activeWorkspace.name === 'Cedar Learning' ? 'Sarah Jenkins' : 'Workspace Owner',
+                                email: 'lead@ooumph.com',
+                                role: 'project_owner' as const
+                              }
+                            ]
+                        ).map((collab, idx) => {
+                          const isApprover =
+                            collab.role === 'approver' ||
+                            collab.teamMemberId === currentProject.humanApproverId;
+                          return (
+                            <div
+                              key={idx}
+                              className="p-3 rounded-lg border border-slate-200 bg-white flex items-center justify-between gap-2 shadow-2xs"
+                            >
+                              <div className="flex items-center gap-2 min-w-0">
+                                <div className="h-7 w-7 rounded-full bg-slate-900 text-white font-bold text-xs flex items-center justify-center shrink-0">
+                                  {collab.name.charAt(0)}
+                                </div>
+                                <div className="min-w-0">
+                                  <div className="font-bold text-slate-900 truncate">{collab.name}</div>
+                                  <div className="text-[10px] text-slate-500 truncate">{collab.email}</div>
+                                </div>
+                              </div>
+                              <span
+                                className={`text-[10px] font-bold px-2 py-0.5 rounded capitalize whitespace-nowrap ${
+                                  collab.role === 'project_owner'
+                                    ? 'bg-slate-900 text-white'
+                                    : isApprover
+                                    ? 'bg-amber-100 text-amber-900 border border-amber-300'
+                                    : 'bg-slate-100 text-slate-700'
+                                }`}
+                              >
+                                {collab.role.replace('_', ' ')}
+                              </span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {/* Infrastructure Readiness & Connected Channels */}
+                    {currentProject.requiredConnections && currentProject.requiredConnections.length > 0 && (
+                      <div className="space-y-2 pt-2">
+                        <div className="font-bold text-slate-900 uppercase tracking-wider text-[11px] flex items-center gap-1.5">
+                          <Plug className="h-3.5 w-3.5 text-slate-600" />
+                          <span>Connected Infrastructure & Channel Readiness</span>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-2">
+                          {currentProject.requiredConnections.map((conn, idx) => (
+                            <div
+                              key={idx}
+                              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-semibold ${
+                                conn.ready
+                                  ? 'border-emerald-200 bg-emerald-50/70 text-emerald-900'
+                                  : 'border-amber-300 bg-amber-50 text-amber-900'
+                              }`}
+                            >
+                              <span
+                                className={`h-2 w-2 rounded-full ${
+                                  conn.ready ? 'bg-emerald-600' : 'bg-amber-500 animate-pulse'
+                                }`}
+                              />
+                              <span>{conn.label}</span>
+                              <span className="text-[10px] font-normal opacity-80">
+                                {conn.ready ? '· Connected' : '· Missing'}
+                              </span>
+                            </div>
+                          ))}
+                          <button
+                            type="button"
+                            onClick={() => navigate('settings')}
+                            className="text-[11px] font-semibold text-slate-600 hover:text-slate-900 underline ml-1 cursor-pointer"
+                          >
+                            Configure in Settings →
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Governance Policies & Approvals Gate Strip */}
+                    <div className="space-y-2 pt-2">
+                      <div className="font-bold text-slate-900 uppercase tracking-wider text-[11px] flex items-center gap-1.5">
+                        <ShieldCheck className="h-3.5 w-3.5 text-teal-700" />
+                        <span>Governance & Approval Gate Policy</span>
+                      </div>
+                      <div className="p-3.5 rounded-xl border border-slate-200 bg-slate-50/60 space-y-1.5 text-xs">
+                        <div className="flex items-center justify-between text-[11px]">
+                          <span className="font-bold text-slate-900">
+                            Policy: {currentProject.approvalPolicies?.[0] || 'Mandatory human approval before external distribution.'}
+                          </span>
+                          <span className="text-slate-500">
+                            Designated Gatekeeper: <strong className="text-slate-900">Workspace Approver</strong>
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-slate-600">
+                          Autonomous actions pause at designated checkpoints (HITL). Revisions can be submitted and deliverables re-evaluated without resetting project state.
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Specialist Handoff Trail */}
+                    {currentProject.handoffs && currentProject.handoffs.length > 0 && (
+                      <div className="space-y-2 pt-2">
+                        <div className="font-bold text-slate-900 uppercase tracking-wider text-[11px] flex items-center gap-1.5">
+                          <Activity className="h-3.5 w-3.5 text-indigo-600" />
+                          <span>Specialist Deliverable Handoffs ({currentProject.handoffs.length})</span>
+                        </div>
+                        <div className="space-y-2">
+                          {currentProject.handoffs.map((handoff, hIdx) => (
+                            <div
+                              key={hIdx}
+                              className="p-3 rounded-lg border border-indigo-100 bg-indigo-50/40 flex items-start justify-between gap-3 text-xs"
+                            >
+                              <div className="flex items-start gap-2.5">
+                                <div className="flex items-center gap-1 font-mono text-[10px] font-bold bg-white border border-indigo-200 px-2 py-0.5 rounded shadow-2xs">
+                                  <span>{handoff.fromCode}</span>
+                                  <span>→</span>
+                                  <span className="text-indigo-700">{handoff.toCode}</span>
+                                </div>
+                                <p className="text-slate-800 text-[11px] font-medium leading-relaxed">
+                                  {handoff.message}
+                                </p>
+                              </div>
+                              <span className="text-[10px] text-slate-400 shrink-0 tabular-nums">
+                                {new Date(handoff.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
 
@@ -434,6 +915,8 @@ export const MyWorkView: React.FC = () => {
                             const isCompleted = step.status === 'completed';
                             const isInProgress = step.status === 'in_progress';
                             const isWaitingApproval = step.status === 'waiting_approval';
+                            const isBlocked = step.status === 'blocked';
+                            const isSkipped = step.status === 'skipped';
                             const assignedEmp = step.employeeId ? employees.find((e) => e.id === step.employeeId) : null;
 
                             return (
@@ -442,6 +925,8 @@ export const MyWorkView: React.FC = () => {
                                 className={`rounded-xl border p-4 transition-all ${
                                   isCompleted
                                     ? 'border-slate-200 bg-slate-50/50 text-slate-700'
+                                    : isBlocked
+                                    ? 'border-amber-400 bg-amber-50/60 text-slate-900 shadow-2xs ring-1 ring-amber-400/20'
                                     : isInProgress
                                     ? 'border-teal-500 bg-teal-50/30 text-slate-900 shadow-2xs ring-1 ring-teal-500/20'
                                     : isWaitingApproval
@@ -450,11 +935,15 @@ export const MyWorkView: React.FC = () => {
                                 }`}
                               >
                                 <div className="flex items-start justify-between gap-4">
-                                  <div className="flex items-start gap-3">
-                                    <div className="pt-0.5">
+                                  <div className="flex items-start gap-3 flex-1 min-w-0">
+                                    <div className="pt-0.5 shrink-0">
                                       {isCompleted ? (
                                         <div className="h-5 w-5 rounded-full bg-teal-600 text-white flex items-center justify-center">
                                           <Check className="h-3 w-3 stroke-[3]" />
+                                        </div>
+                                      ) : isBlocked ? (
+                                        <div className="h-5 w-5 rounded-full bg-amber-500 text-white flex items-center justify-center font-bold text-xs">
+                                          !
                                         </div>
                                       ) : isInProgress ? (
                                         <div className="h-5 w-5 rounded-full bg-teal-100 text-teal-800 border border-teal-300 flex items-center justify-center font-bold text-xs">
@@ -471,16 +960,117 @@ export const MyWorkView: React.FC = () => {
                                       )}
                                     </div>
 
-                                    <div className="space-y-1">
-                                      <div className="flex items-center gap-2">
+                                    <div className="space-y-1.5 flex-1 min-w-0">
+                                      <div className="flex items-center gap-2 flex-wrap">
                                         <h4 className="font-semibold text-xs text-slate-900">{step.title}</h4>
                                         {step.type === 'human_approval' && (
                                           <span className="text-[10px] font-semibold bg-amber-100 text-amber-800 px-1.5 py-0.2 rounded border border-amber-200">
                                             Human Review
                                           </span>
                                         )}
+                                        {isBlocked && (
+                                          <span className="text-[10px] font-bold bg-amber-200 text-amber-950 px-1.5 py-0.2 rounded border border-amber-300">
+                                            Paused · Connection Required
+                                          </span>
+                                        )}
+                                        {step.revisionFeedback && (
+                                          <span className="text-[10px] font-semibold bg-emerald-100 text-emerald-800 px-1.5 py-0.2 rounded border border-emerald-200">
+                                            Revision Applied
+                                          </span>
+                                        )}
                                       </div>
                                       <p className="text-xs text-slate-600">{step.description}</p>
+
+                                      {/* Blocked Reason Warning Box */}
+                                      {isBlocked && (
+                                        <div className="p-2.5 rounded-lg border border-amber-300 bg-white space-y-1.5">
+                                          <div className="text-[11px] font-bold text-amber-950 flex items-center gap-1.5">
+                                            <AlertTriangle className="h-3.5 w-3.5 text-amber-600 shrink-0" />
+                                            <span>Stage Blocker:</span>
+                                          </div>
+                                          <p className="text-[11px] text-amber-900">
+                                            {step.blockedReason || 'This automated step requires an active integration connection.'}
+                                          </p>
+                                          <div className="flex items-center gap-2 pt-1 flex-wrap">
+                                            <button
+                                              type="button"
+                                              onClick={() => retryBlockedStep(currentProject.id, step.id)}
+                                              className="flex items-center gap-1 px-2.5 py-1 rounded bg-amber-700 hover:bg-amber-800 text-white text-[11px] font-semibold shadow-2xs cursor-pointer"
+                                            >
+                                              <RefreshCw className="h-3 w-3" />
+                                              <span>Verify & Retry Stage</span>
+                                            </button>
+                                            <button
+                                              type="button"
+                                              onClick={() => navigate('settings')}
+                                              className="px-2.5 py-1 rounded border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 text-[11px] font-semibold cursor-pointer"
+                                            >
+                                              Settings →
+                                            </button>
+                                            <button
+                                              type="button"
+                                              onClick={() => skipOptionalStep(currentProject.id, step.id)}
+                                              className="text-[11px] text-slate-500 hover:text-slate-800 underline ml-1 cursor-pointer"
+                                            >
+                                              Skip step
+                                            </button>
+                                          </div>
+                                        </div>
+                                      )}
+
+                                      {/* Revision feedback note if any */}
+                                      {step.revisionFeedback && (
+                                        <div className="text-[11px] text-slate-600 bg-slate-50 p-2 rounded border border-slate-200 italic">
+                                          "Revision: {step.revisionFeedback}"
+                                        </div>
+                                      )}
+
+                                      {/* Inline Request Changes Form */}
+                                      {activeStepRevisionId === step.id && (
+                                        <div className="p-3 rounded-lg border border-amber-300 bg-amber-50 space-y-2 mt-2">
+                                          <div className="flex items-center justify-between text-[11px] font-bold text-amber-950">
+                                            <span>Request deliverable revision:</span>
+                                            <button
+                                              type="button"
+                                              onClick={() => setActiveStepRevisionId(null)}
+                                              className="text-amber-700 hover:text-amber-900"
+                                            >
+                                              <X className="h-3.5 w-3.5" />
+                                            </button>
+                                          </div>
+                                          <textarea
+                                            rows={2}
+                                            value={stepRevisionText}
+                                            onChange={(e) => setStepRevisionText(e.target.value)}
+                                            placeholder="Provide specific feedback or changes for the specialist..."
+                                            className="w-full rounded border border-amber-300 bg-white p-2 text-xs text-slate-900 focus:outline-hidden"
+                                          />
+                                          <div className="flex justify-end gap-2">
+                                            <button
+                                              type="button"
+                                              onClick={() => setActiveStepRevisionId(null)}
+                                              className="px-2 py-0.5 text-xs text-slate-600"
+                                            >
+                                              Cancel
+                                            </button>
+                                            <button
+                                              type="button"
+                                              onClick={() => {
+                                                submitRevisionForStep(
+                                                  currentProject.id,
+                                                  step.id,
+                                                  stepRevisionText.trim() || 'Please adjust deliverable formatting and alignment.'
+                                                );
+                                                setActiveStepRevisionId(null);
+                                                setStepRevisionText('');
+                                              }}
+                                              className="px-3 py-1 bg-amber-800 hover:bg-amber-900 text-white rounded text-xs font-semibold"
+                                            >
+                                              Submit Revision
+                                            </button>
+                                          </div>
+                                        </div>
+                                      )}
 
                                       {assignedEmp && (
                                         <div className="pt-1 flex items-center gap-2 text-[11px] text-slate-500">
@@ -510,17 +1100,51 @@ export const MyWorkView: React.FC = () => {
                                       </button>
                                     )}
                                     {isWaitingApproval && (
-                                      <button
-                                        onClick={() => navigate('inbox')}
-                                        className="flex items-center gap-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 px-3 py-1.5 text-xs font-semibold text-white shadow-2xs transition-colors cursor-pointer"
-                                      >
-                                        <span>Review in Inbox</span>
-                                      </button>
+                                      <div className="flex items-center gap-1.5 flex-wrap">
+                                        <button
+                                          onClick={() => {
+                                            const matchedReq = approvals.find((a) => a.workflowRunId === currentWorkflowRun.id && a.status === 'pending');
+                                            if (matchedReq) {
+                                              approveRequest(matchedReq.id);
+                                            } else {
+                                              advanceWorkflowStep(currentWorkflowRun.id, step.id);
+                                            }
+                                          }}
+                                          className="flex items-center gap-1.5 rounded-lg bg-slate-950 hover:bg-slate-800 px-3 py-1.5 text-xs font-semibold text-white shadow-2xs transition-colors cursor-pointer"
+                                        >
+                                          <CheckCircle2 className="h-3 w-3" />
+                                          <span>Authorize Gate</span>
+                                        </button>
+
+                                        <button
+                                          type="button"
+                                          onClick={() => {
+                                            setActiveStepRevisionId(step.id);
+                                            setStepRevisionText('');
+                                          }}
+                                          className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 text-xs font-medium cursor-pointer"
+                                        >
+                                          <RotateCcw className="h-3 w-3" />
+                                          <span>Request Revision</span>
+                                        </button>
+
+                                        <button
+                                          onClick={() => navigate('inbox')}
+                                          className="flex items-center gap-1.5 rounded-lg bg-amber-100 border border-amber-300 hover:bg-amber-200 px-2.5 py-1.5 text-xs font-semibold text-amber-900 shadow-2xs transition-colors cursor-pointer"
+                                        >
+                                          <span>Review in Inbox</span>
+                                        </button>
+                                      </div>
                                     )}
                                     {isCompleted && (
                                       <span className="text-[11px] font-semibold text-teal-700 flex items-center gap-1">
                                         <Check className="h-3 w-3" />
                                         <span>Completed</span>
+                                      </span>
+                                    )}
+                                    {isSkipped && (
+                                      <span className="text-[11px] font-medium text-slate-400">
+                                        Skipped
                                       </span>
                                     )}
                                   </div>
@@ -529,6 +1153,98 @@ export const MyWorkView: React.FC = () => {
                             );
                           })}
                         </div>
+
+                        {/* Phase Advancement & Recommended Workflows Continuation (Prompt 2B.2) */}
+                        {currentWorkflowRun.steps.every((s) => s.status === 'completed' || s.status === 'skipped') && (
+                          <div className="pt-3 space-y-4">
+                            {currentProject.upcomingWorkflowIds && currentProject.upcomingWorkflowIds.length > 0 ? (
+                              <div className="rounded-xl border border-teal-300 bg-linear-to-b from-teal-50 via-teal-50/50 to-white p-5 space-y-3 shadow-xs">
+                                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                                  <div>
+                                    <span className="font-mono text-[10px] font-bold px-2 py-0.5 rounded bg-teal-900 text-white uppercase tracking-wider">
+                                      PHASE COMPLETED
+                                    </span>
+                                    <h3 className="text-sm font-bold text-slate-900 mt-1">
+                                      {currentProject.currentPhaseTitle || 'Current Phase'} Delivered Successfully
+                                    </h3>
+                                    <p className="text-xs text-slate-600 mt-0.5">
+                                      All outputs verified and archived. Ready to advance to{' '}
+                                      <strong>
+                                        {workflowTemplates.find((w) => w.id === currentProject.upcomingWorkflowIds?.[0])?.name || 'Next Workflow Phase'}
+                                      </strong>. Reusing established context and team deliverables.
+                                    </p>
+                                  </div>
+
+                                  <button
+                                    type="button"
+                                    onClick={() => advanceWorkflowPhase(currentProject.id)}
+                                    className="flex items-center gap-2 rounded-lg bg-teal-800 hover:bg-teal-900 text-white px-4 py-2.5 text-xs font-bold transition-all shadow-xs cursor-pointer shrink-0 ring-2 ring-teal-500/20"
+                                  >
+                                    <Sparkles className="h-3.5 w-3.5" />
+                                    <span>Prepare & Start Next Phase →</span>
+                                  </button>
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="rounded-xl border border-slate-200 bg-white p-5 space-y-4 shadow-2xs">
+                                <div className="flex items-center gap-2 text-emerald-800">
+                                  <CheckCircle2 className="h-4 w-4" />
+                                  <span className="text-xs font-bold uppercase tracking-wider">
+                                    Project Milestones Achieved · All Deliverables Archived
+                                  </span>
+                                </div>
+                                <div>
+                                  <h4 className="text-xs font-bold text-slate-900">Recommended Next Workflows</h4>
+                                  <p className="text-[11px] text-slate-500 mt-0.5">
+                                    Continue business momentum with subsequent specialized workflows that build on this deliverable foundation:
+                                  </p>
+                                </div>
+
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                                  {((currentProject.workflowTemplateId
+                                    ? workflowTemplates.find((w) => w.id === currentProject.workflowTemplateId)?.recommendedNextWorkflowIds || []
+                                    : ['wf-06', 'wf-11']
+                                  )
+                                    .map((id) => workflowTemplates.find((w) => w.id === id))
+                                    .filter(Boolean) as WorkflowTemplate[]
+                                  ).slice(0, 2).map((recWf) => (
+                                    <div
+                                      key={recWf.id}
+                                      className="p-3.5 rounded-lg border border-slate-200 bg-slate-50/50 hover:bg-white hover:border-slate-300 transition-all flex flex-col justify-between gap-3"
+                                    >
+                                      <div>
+                                        <div className="flex items-center justify-between gap-1 text-[10px]">
+                                          <span className="font-mono font-bold text-slate-700">{recWf.code}</span>
+                                          <span className="text-slate-500">{recWf.typicalDuration}</span>
+                                        </div>
+                                        <h5 className="font-bold text-xs text-slate-900 mt-1">{recWf.name}</h5>
+                                        <p className="text-[11px] text-slate-600 line-clamp-2 mt-0.5">{recWf.outcome}</p>
+                                      </div>
+
+                                      <div className="flex items-center gap-2 pt-2 border-t border-slate-100">
+                                        <button
+                                          type="button"
+                                          onClick={() => openWorkflowSetup(recWf.id)}
+                                          className="flex-1 flex items-center justify-center gap-1 py-1.5 rounded bg-slate-900 hover:bg-slate-800 text-white text-[11px] font-semibold cursor-pointer shadow-2xs"
+                                        >
+                                          <span>Launch Setup</span>
+                                          <ArrowRight className="h-3 w-3" />
+                                        </button>
+                                        <button
+                                          type="button"
+                                          onClick={() => addWorkflowToProject(currentProject.id, recWf.id)}
+                                          className="px-2.5 py-1.5 rounded border border-slate-300 bg-white hover:bg-slate-100 text-slate-700 text-[11px] font-semibold cursor-pointer"
+                                        >
+                                          Queue in Project
+                                        </button>
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        )}
                       </div>
                     ) : (
                       <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50/50 p-8 text-center space-y-3">
@@ -592,39 +1308,70 @@ export const MyWorkView: React.FC = () => {
 
                 {/* 4. PROJECT ASSETS TAB */}
                 {projectSubTab === 'assets' && (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 animate-fade-in text-xs">
-                    <div className="rounded-xl border border-slate-200 bg-white p-4 space-y-2">
-                      <div className="flex items-center justify-between">
-                        <span className="font-bold text-slate-900">Landing Page Draft</span>
-                        <span className="text-[10px] text-slate-500 font-mono">v{websitePage.versionHistory.length}</span>
+                  <div className="space-y-4 animate-fade-in text-xs">
+                    {/* Dynamic Milestone Deliverables generated autonomously */}
+                    {currentProject.projectAssets && currentProject.projectAssets.length > 0 && (
+                      <div className="space-y-2">
+                        <div className="font-bold text-slate-900 uppercase tracking-wider text-[11px] flex items-center gap-1.5">
+                          <Sparkles className="h-3.5 w-3.5 text-teal-700" />
+                          <span>Generated Milestone Deliverables ({currentProject.projectAssets.length})</span>
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                          {currentProject.projectAssets.map((asset) => (
+                            <div key={asset.id} className="rounded-xl border border-slate-200 bg-white p-4 space-y-2 shadow-2xs">
+                              <div className="flex items-center justify-between">
+                                <span className="font-bold text-slate-900 truncate">{asset.title}</span>
+                                <span className="text-[10px] text-teal-800 bg-teal-50 border border-teal-200 px-1.5 py-0.2 rounded font-semibold capitalize">
+                                  {asset.type.replace('_', ' ')}
+                                </span>
+                              </div>
+                              <p className="text-slate-600 text-[11px] line-clamp-3 bg-slate-50 p-2 rounded border border-slate-100 font-mono text-[10px]">
+                                {asset.content}
+                              </p>
+                              <div className="pt-1 flex items-center justify-between text-[11px] text-slate-400 border-t border-slate-100">
+                                <span>Produced by <strong>{asset.employeeName}</strong> ({asset.employeeCode})</span>
+                                <span className="tabular-nums">{new Date(asset.createdAt).toLocaleDateString()}</span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
                       </div>
-                      <p className="text-slate-600 text-[11px]">"{websitePage.heroHeadline}"</p>
-                      <button
-                        onClick={() => {
-                          const emp = employees.find((e) => e.code === 'A07');
-                          if (emp) selectEmployee(emp.id);
-                        }}
-                        className="text-cyan-800 font-semibold hover:underline block pt-1 cursor-pointer"
-                      >
-                        Inspect in Walter's Workspace →
-                      </button>
-                    </div>
+                    )}
 
-                    <div className="rounded-xl border border-slate-200 bg-white p-4 space-y-2">
-                      <div className="flex items-center justify-between">
-                        <span className="font-bold text-slate-900">Executive PDF Resource</span>
-                        <span className="text-[10px] text-teal-800 bg-teal-50 px-1.5 py-0.2 rounded font-semibold">Ready</span>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                      <div className="rounded-xl border border-slate-200 bg-white p-4 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="font-bold text-slate-900">Landing Page Draft</span>
+                          <span className="text-[10px] text-slate-500 font-mono">v{websitePage.versionHistory.length}</span>
+                        </div>
+                        <p className="text-slate-600 text-[11px]">"{websitePage.heroHeadline}"</p>
+                        <button
+                          onClick={() => {
+                            const emp = employees.find((e) => e.code === 'A07');
+                            if (emp) selectEmployee(emp.id);
+                          }}
+                          className="text-cyan-800 font-semibold hover:underline block pt-1 cursor-pointer"
+                        >
+                          Inspect in Walter's Workspace →
+                        </button>
                       </div>
-                      <p className="text-slate-600 text-[11px]">{flagshipCampaign.resourceTitle}</p>
-                      <button
-                        onClick={() => {
-                          const emp = employees.find((e) => e.code === 'A23');
-                          if (emp) selectEmployee(emp.id);
-                        }}
-                        className="text-teal-800 font-semibold hover:underline block pt-1 cursor-pointer"
-                      >
-                        Inspect in Astrid's Workspace →
-                      </button>
+
+                      <div className="rounded-xl border border-slate-200 bg-white p-4 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="font-bold text-slate-900">Executive PDF Resource</span>
+                          <span className="text-[10px] text-teal-800 bg-teal-50 px-1.5 py-0.2 rounded font-semibold">Ready</span>
+                        </div>
+                        <p className="text-slate-600 text-[11px]">{flagshipCampaign.resourceTitle}</p>
+                        <button
+                          onClick={() => {
+                            const emp = employees.find((e) => e.code === 'A23');
+                            if (emp) selectEmployee(emp.id);
+                          }}
+                          className="text-teal-800 font-semibold hover:underline block pt-1 cursor-pointer"
+                        >
+                          Inspect in Astrid's Workspace →
+                        </button>
+                      </div>
                     </div>
                   </div>
                 )}
@@ -658,7 +1405,40 @@ export const MyWorkView: React.FC = () => {
 
                 {/* 6. PROJECT RESULTS TAB */}
                 {projectSubTab === 'results' && (
-                  <div className="space-y-4 animate-fade-in">
+                  <div className="space-y-4 animate-fade-in text-xs">
+                    {/* Target Benchmark KPIs Scorecard (Prompt 2B.2) */}
+                    {(currentProject.targetMetricsValues || (currentProject.successMetrics && currentProject.successMetrics.length > 0)) && (
+                      <div className="rounded-xl border border-slate-200 bg-white p-5 space-y-3 shadow-2xs">
+                        <div className="flex items-center justify-between">
+                          <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
+                            <Award className="h-3.5 w-3.5 text-teal-700" />
+                            <span>Target Success Metrics & Milestone Benchmarks</span>
+                          </h4>
+                          <span className="text-[10px] font-bold text-teal-800 bg-teal-50 px-2 py-0.5 rounded-full border border-teal-200">
+                            Configured in Setup
+                          </span>
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
+                          {(currentProject.targetMetricsValues
+                            ? Object.entries(currentProject.targetMetricsValues).map(([name, val]) => ({ name, val }))
+                            : (currentProject.successMetrics || []).map((m) => {
+                                const parts = m.split(':');
+                                return { name: parts[0] || m, val: parts[1] || '100% Target' };
+                              })
+                          ).map((met, idx) => (
+                            <div key={idx} className="p-3.5 rounded-lg border border-slate-100 bg-slate-50/70 space-y-1">
+                              <span className="text-[10px] text-slate-500 font-medium block truncate">{met.name}</span>
+                              <div className="text-sm font-bold text-slate-900">{met.val}</div>
+                              <span className="text-[10px] text-emerald-700 font-semibold flex items-center gap-1">
+                                <Check className="h-2.5 w-2.5" />
+                                <span>Benchmark Tracked</span>
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
                       <div className="rounded-xl border border-slate-200 bg-white p-4">
                         <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
@@ -782,16 +1562,21 @@ export const MyWorkView: React.FC = () => {
       )}
 
       {/* ========================================================================= */}
-      {/* SUB-TAB 3: WORKFLOWS LIBRARY (Requirement H) */}
+      {/* SUB-TAB 3: WORKFLOWS & BUSINESS SOLUTIONS LIBRARY (Prompt 2B.1) */}
       {/* ========================================================================= */}
       {workTab === 'workflows' && (
-        <div className="space-y-6">
-          {/* Header & Actions */}
+        <div className="space-y-6 animate-fade-in">
+          {/* 1. Header & Actions */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-200">
             <div>
-              <h2 className="text-base font-bold text-slate-900">Workflows</h2>
+              <div className="flex items-center gap-2">
+                <h2 className="text-lg font-bold text-slate-950">Workflows</h2>
+                <span className="text-[11px] font-bold text-teal-800 bg-teal-50 border border-teal-200 px-2 py-0.5 rounded-full">
+                  15 Solutions · 54 Workflows
+                </span>
+              </div>
               <p className="text-xs text-slate-500 mt-0.5">
-                Repeatable ways your AI team works together.
+                Repeatable ways your AI team gets business work done.
               </p>
             </div>
 
@@ -799,8 +1584,9 @@ export const MyWorkView: React.FC = () => {
               <button
                 onClick={() =>
                   setPlaceholderModalInfo({
-                    title: 'New Workflow',
-                    description: 'Workflow builder will be completed in the next frontend phase.'
+                    title: 'New Workflow Builder',
+                    description:
+                      'Custom Workflow Authoring is scheduled for Phase 2B.2. You can currently launch any of our 54 pre-built specialist workflows or 15 end-to-end business solutions.'
                   })
                 }
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-xs font-semibold text-slate-800 shadow-2xs transition-colors cursor-pointer"
@@ -812,8 +1598,9 @@ export const MyWorkView: React.FC = () => {
               <button
                 onClick={() =>
                   setPlaceholderModalInfo({
-                    title: 'New Template',
-                    description: 'Workflow builder will be completed in the next frontend phase.'
+                    title: 'New Template Builder',
+                    description:
+                      'Custom template authoring and recipe saving will be enabled in the upcoming builder phase (Phase 2B.2).'
                   })
                 }
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-xs font-semibold text-white shadow-2xs transition-colors cursor-pointer"
@@ -824,100 +1611,304 @@ export const MyWorkView: React.FC = () => {
             </div>
           </div>
 
-          {/* Category Filter Pills */}
-          <div className="flex flex-wrap items-center gap-1.5">
-            {workflowCategories.map((cat) => (
-              <button
-                key={cat}
-                onClick={() => setWorkflowCategoryFilter(cat)}
-                className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors cursor-pointer ${
-                  workflowCategoryFilter === cat
-                    ? 'bg-slate-900 text-white shadow-2xs font-semibold'
-                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200 hover:text-slate-900'
-                }`}
-              >
-                {cat}
-              </button>
-            ))}
+          {/* 2. Outcome Selector: "What are you trying to accomplish?" */}
+          <div className="rounded-2xl border border-teal-200/80 bg-linear-to-b from-teal-50/40 via-white to-white p-5 space-y-3.5 shadow-2xs">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <Target className="h-4 w-4 text-teal-700 shrink-0" />
+                <div>
+                  <h3 className="text-xs sm:text-sm font-bold text-slate-900">
+                    What are you trying to accomplish?
+                  </h3>
+                  <p className="text-[11px] text-slate-500">
+                    Filter by business outcome to find complete multi-agent solutions and specific workflow recipes.
+                  </p>
+                </div>
+              </div>
+
+              {selectedOutcomeCategoryId !== 'all' && (
+                <button
+                  onClick={() => setSelectedOutcomeCategoryId('all')}
+                  className="self-start sm:self-auto text-[11px] text-teal-800 hover:text-teal-950 font-semibold underline underline-offset-2 flex items-center gap-1 cursor-pointer"
+                >
+                  <X className="h-3 w-3" />
+                  <span>Clear outcome filter</span>
+                </button>
+              )}
+            </div>
+
+            {/* Outcome Category Pills */}
+            <div className="flex flex-wrap items-center gap-1.5 pt-1">
+              {OUTCOME_CATEGORIES.map((outcome) => {
+                const isActive = selectedOutcomeCategoryId === outcome.id;
+                return (
+                  <button
+                    key={outcome.id}
+                    onClick={() => setSelectedOutcomeCategoryId(outcome.id)}
+                    className={`px-3 py-1.5 text-xs rounded-xl font-medium transition-all duration-150 cursor-pointer ${
+                      isActive
+                        ? 'bg-teal-900 text-white font-semibold shadow-xs ring-2 ring-teal-900/20'
+                        : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 hover:border-slate-300'
+                    }`}
+                  >
+                    {outcome.shortLabel}
+                  </button>
+                );
+              })}
+            </div>
+
+            {selectedOutcomeCategoryId !== 'all' && (
+              <div className="text-[11px] text-teal-900 bg-teal-100/60 px-3 py-2 rounded-lg border border-teal-200 flex items-center justify-between gap-3">
+                <span>
+                  Filtering by: <strong>{OUTCOME_CATEGORIES.find((c) => c.id === selectedOutcomeCategoryId)?.label}</strong>
+                  {' · '}
+                  Found <strong>{filteredBusinessSolutions.length}</strong> solutions and <strong>{filteredWorkflows.length}</strong> workflows.
+                </span>
+                <button
+                  onClick={() => setSelectedOutcomeCategoryId('all')}
+                  className="font-bold text-teal-800 hover:text-teal-950 shrink-0"
+                >
+                  Show all
+                </button>
+              </div>
+            )}
           </div>
 
-          {/* Templates Display */}
-          {workflowCategoryFilter === 'My templates' ? (
-            <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50/50 p-12 text-center space-y-2">
-              <Workflow className="mx-auto h-8 w-8 text-slate-400" />
-              <div className="text-sm font-semibold text-slate-900">No custom templates yet</div>
-              <p className="text-xs text-slate-500 max-w-sm mx-auto">
-                Custom template authoring and recipe saving will be enabled in the upcoming builder phase.
-              </p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {getFilteredTemplates().map((template) => (
-                <div
-                  key={template.id}
-                  className="rounded-xl border border-slate-200 bg-white p-5 shadow-2xs flex flex-col justify-between space-y-4 hover:border-slate-300 transition-colors"
+          {/* 3. Library Navigation, Search, and Filtering Bar */}
+          <div className="space-y-3 pt-1">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+              {/* Primary View Mode Switcher */}
+              <div className="flex items-center gap-1 rounded-xl bg-slate-100 p-1 self-start">
+                <button
+                  onClick={() => setLibraryViewMode('solutions')}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors cursor-pointer ${
+                    libraryViewMode === 'solutions'
+                      ? 'bg-white text-slate-900 shadow-2xs'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
                 >
-                  <div className="space-y-2.5">
-                    <div className="flex items-center justify-between">
-                      <span className="text-[10px] font-semibold text-indigo-700 bg-indigo-50 border border-indigo-200 px-2 py-0.5 rounded">
-                        {template.category}
-                      </span>
-                      <span className="text-xs text-slate-400">Duration: {template.typicalDuration}</span>
-                    </div>
+                  <Sparkles className="h-3.5 w-3.5 text-teal-600" />
+                  <span>Business Solutions</span>
+                  <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-teal-100 text-teal-800 font-bold">
+                    {filteredBusinessSolutions.length}
+                  </span>
+                </button>
 
-                    <h3 className="text-sm font-bold text-slate-900">{template.name}</h3>
-                    <p className="text-xs text-slate-600 leading-relaxed">{template.shortDescription}</p>
+                <button
+                  onClick={() => setLibraryViewMode('workflows')}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors cursor-pointer ${
+                    libraryViewMode === 'workflows'
+                      ? 'bg-white text-slate-900 shadow-2xs'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  <Workflow className="h-3.5 w-3.5 text-indigo-600" />
+                  <span>Specialist Workflows</span>
+                  <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-indigo-100 text-indigo-800 font-bold">
+                    {filteredWorkflows.length}
+                  </span>
+                </button>
 
-                    <div className="pt-2">
-                      <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1.5">
-                        Specialist Chain
-                      </div>
-                      <div className="flex flex-wrap gap-1.5">
-                        {template.participatingEmployeeIds.map((empId) => {
-                          const emp = employees.find((e) => e.id === empId);
-                          if (!emp) return null;
-                          return (
-                            <span
-                              key={emp.id}
-                              className="inline-flex items-center gap-1 rounded bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-700"
-                            >
-                              <span
-                                className={`h-3 w-3 rounded-full ${emp.avatarColor} text-white font-bold text-[7px] flex items-center justify-center`}
-                              >
-                                {emp.code}
-                              </span>
-                              <span>{emp.name}</span>
-                            </span>
-                          );
-                        })}
-                      </div>
-                    </div>
+                <button
+                  onClick={() => setLibraryViewMode('all')}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors cursor-pointer ${
+                    libraryViewMode === 'all'
+                      ? 'bg-white text-slate-900 shadow-2xs'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  <span>All</span>
+                  <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-slate-200 text-slate-800 font-bold">
+                    {filteredBusinessSolutions.length + filteredWorkflows.length}
+                  </span>
+                </button>
+              </div>
 
-                    <div className="pt-1">
-                      <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1">
-                        Target Outcome
-                      </div>
-                      <p className="text-xs text-teal-900 bg-teal-50 p-2.5 rounded-lg border border-teal-200/80 leading-relaxed">
-                        {template.outcome}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="pt-3 border-t border-slate-100 flex items-center justify-between">
-                    <span className="text-xs text-slate-500">{template.expectedSteps.length} structured steps</span>
+              {/* Search & Complexity Filters */}
+              <div className="flex items-center gap-2 flex-wrap">
+                <div className="relative w-full sm:w-64">
+                  <Search className="pointer-events-none absolute left-3 top-2.5 h-3.5 w-3.5 text-slate-400" />
+                  <input
+                    type="text"
+                    value={workflowSearchQuery}
+                    onChange={(e) => setWorkflowSearchQuery(e.target.value)}
+                    placeholder="Search titles, outcomes, tags..."
+                    className="w-full rounded-lg border border-slate-200 bg-white pl-8 pr-7 py-1.5 text-xs text-slate-900 placeholder:text-slate-400 focus:border-slate-400 focus:outline-hidden"
+                  />
+                  {workflowSearchQuery && (
                     <button
-                      onClick={() => {
-                        const newRunId = startWorkflowFromTemplate(template.id);
-                        setWorkTab('projects');
-                      }}
-                      className="flex items-center gap-1.5 rounded-lg bg-slate-900 px-3.5 py-1.5 text-xs font-semibold text-white hover:bg-slate-800 transition-colors shadow-2xs cursor-pointer"
+                      onClick={() => setWorkflowSearchQuery('')}
+                      className="absolute right-2.5 top-2.5 text-slate-400 hover:text-slate-600"
                     >
-                      <Play className="h-3 w-3 fill-current" />
-                      <span>Launch Workflow</span>
+                      <X className="h-3 w-3" />
                     </button>
-                  </div>
+                  )}
                 </div>
-              ))}
+
+                {/* Complexity Selector */}
+                <div className="flex items-center gap-1 border border-slate-200 rounded-lg p-0.5 bg-white text-xs">
+                  {(['all', 'starter', 'moderate', 'advanced'] as const).map((lvl) => (
+                    <button
+                      key={lvl}
+                      onClick={() => setComplexityFilter(lvl)}
+                      className={`px-2 py-1 rounded text-[11px] font-medium capitalize transition-colors cursor-pointer ${
+                        complexityFilter === lvl
+                          ? 'bg-slate-900 text-white font-semibold'
+                          : 'text-slate-600 hover:text-slate-900'
+                      }`}
+                    >
+                      {lvl}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Functional Category Filters (Active when looking at workflows or all) */}
+            {(libraryViewMode === 'workflows' || libraryViewMode === 'all') && (
+              <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs">
+                <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider shrink-0 pr-1">
+                  Domain:
+                </span>
+                {workflowCategories.map((cat) => (
+                  <button
+                    key={cat}
+                    onClick={() => setWorkflowCategoryFilter(cat)}
+                    className={`px-2.5 py-1 text-[11px] rounded-lg font-medium whitespace-nowrap transition-colors cursor-pointer ${
+                      workflowCategoryFilter === cat
+                        ? 'bg-indigo-900 text-white font-semibold shadow-2xs'
+                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200 hover:text-slate-900'
+                    }`}
+                  >
+                    {cat}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* 4. BUSINESS SOLUTIONS SECTION */}
+          {(libraryViewMode === 'solutions' || libraryViewMode === 'all') && (
+            <div className="space-y-4 pt-2">
+              <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+                <div>
+                  <h3 className="text-sm font-bold text-slate-900 flex items-center gap-1.5">
+                    <Sparkles className="h-4 w-4 text-teal-700" />
+                    <span>Business Solution Packs</span>
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    End-to-end multi-agent playbooks combining multiple coordinated workflows to achieve complete business results.
+                  </p>
+                </div>
+                <span className="text-xs font-semibold text-slate-500">
+                  {filteredBusinessSolutions.length} available
+                </span>
+              </div>
+
+              {filteredBusinessSolutions.length === 0 ? (
+                <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50/50 p-8 text-center space-y-2">
+                  <Target className="mx-auto h-7 w-7 text-slate-400" />
+                  <div className="text-xs font-bold text-slate-800">No matching business solutions</div>
+                  <p className="text-[11px] text-slate-500 max-w-sm mx-auto">
+                    Try clearing your search query or selecting "All Outcomes" to see the full catalog.
+                  </p>
+                  <button
+                    onClick={() => {
+                      setSelectedOutcomeCategoryId('all');
+                      setWorkflowSearchQuery('');
+                      setComplexityFilter('all');
+                    }}
+                    className="text-xs text-teal-800 font-semibold underline"
+                  >
+                    Reset all filters
+                  </button>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4.5">
+                  {filteredBusinessSolutions.map((solution) => (
+                    <BusinessSolutionCard
+                      key={solution.id}
+                      solution={solution}
+                      employees={employees}
+                      onClick={() => {
+                        setSelectedSolutionId(solution.id);
+                        setIsSolutionDetailOpen(true);
+                      }}
+                      onPlan={(e) => {
+                        e.stopPropagation();
+                        openBusinessSolutionSetup(solution.id);
+                      }}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* 5. SPECIALIST WORKFLOWS SECTION */}
+          {(libraryViewMode === 'workflows' || libraryViewMode === 'all') && (
+            <div className="space-y-4 pt-4">
+              <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+                <div>
+                  <h3 className="text-sm font-bold text-slate-900 flex items-center gap-1.5">
+                    <Workflow className="h-4 w-4 text-indigo-700" />
+                    <span>Specialist Workflows</span>
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    Reusable operating processes executed by specialist chains with human approval checkpoints.
+                  </p>
+                </div>
+                <span className="text-xs font-semibold text-slate-500">
+                  {filteredWorkflows.length} available
+                </span>
+              </div>
+
+              {workflowCategoryFilter === 'My templates' ? (
+                <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50/50 p-10 text-center space-y-2">
+                  <Workflow className="mx-auto h-7 w-7 text-slate-400" />
+                  <div className="text-sm font-semibold text-slate-900">No custom templates yet</div>
+                  <p className="text-xs text-slate-500 max-w-sm mx-auto">
+                    Custom template authoring and recipe saving will be enabled in the upcoming builder phase (Phase 2B.2).
+                  </p>
+                </div>
+              ) : filteredWorkflows.length === 0 ? (
+                <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50/50 p-8 text-center space-y-2">
+                  <Workflow className="mx-auto h-7 w-7 text-slate-400" />
+                  <div className="text-xs font-bold text-slate-800">No matching workflows found</div>
+                  <p className="text-[11px] text-slate-500 max-w-sm mx-auto">
+                    Try adjusting your domain filter, outcome category, or complexity filter.
+                  </p>
+                  <button
+                    onClick={() => {
+                      setWorkflowCategoryFilter('All');
+                      setSelectedOutcomeCategoryId('all');
+                      setWorkflowSearchQuery('');
+                      setComplexityFilter('all');
+                    }}
+                    className="text-xs text-indigo-800 font-semibold underline"
+                  >
+                    Reset all filters
+                  </button>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {filteredWorkflows.map((workflow) => (
+                    <WorkflowCard
+                      key={workflow.id}
+                      workflow={workflow}
+                      employees={employees}
+                      onClick={() => {
+                        setSelectedWorkflowTemplateId(workflow.id);
+                        setIsWorkflowDetailOpen(true);
+                      }}
+                      onLaunch={(e) => {
+                        e.stopPropagation();
+                        openWorkflowSetup(workflow.id);
+                      }}
+                    />
+                  ))}
+                </div>
+              )}
             </div>
           )}
         </div>

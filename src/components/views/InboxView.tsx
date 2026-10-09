@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useOoumph } from '../../store/ooumphStore';
 import {
   CheckCircle2,
@@ -8,7 +8,10 @@ import {
   User,
   ShieldAlert,
   ArrowRight,
-  MessageSquare
+  MessageSquare,
+  RotateCcw,
+  Send,
+  X
 } from 'lucide-react';
 
 export const InboxView: React.FC = () => {
@@ -18,13 +21,24 @@ export const InboxView: React.FC = () => {
     approvals,
     approveRequest,
     rejectRequest,
+    requestChangesOnApproval,
     selectEmployee,
     employees,
     conversations
   } = useOoumph();
 
+  const [activeChangeRequestId, setActiveChangeRequestId] = useState<string | null>(null);
+  const [changeFeedbackText, setChangeFeedbackText] = useState('');
+
   const pendingApprovals = approvals.filter((a) => a.status === 'pending');
   const pastApprovals = approvals.filter((a) => a.status !== 'pending');
+
+  const handleSubmitChanges = (approvalId: string) => {
+    if (!changeFeedbackText.trim()) return;
+    requestChangesOnApproval(approvalId, changeFeedbackText);
+    setActiveChangeRequestId(null);
+    setChangeFeedbackText('');
+  };
 
   return (
     <div className="max-w-6xl mx-auto px-6 py-8 space-y-6">
@@ -125,29 +139,92 @@ export const InboxView: React.FC = () => {
                   )}
 
                   {/* Authorization Controls */}
-                  <div className="flex items-center justify-between pt-3 border-t border-slate-100">
-                    <button
-                      onClick={() => selectEmployee(appr.employeeId)}
-                      className="text-xs text-indigo-700 hover:underline font-medium"
-                    >
-                      Inspect in {appr.employeeName}'s Workspace →
-                    </button>
+                  <div className="pt-3 border-t border-slate-100 space-y-3">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                      <button
+                        onClick={() => selectEmployee(appr.employeeId)}
+                        className="text-xs text-indigo-700 hover:underline font-medium text-left"
+                      >
+                        Inspect in {appr.employeeName}'s Workspace →
+                      </button>
 
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => rejectRequest(appr.id)}
-                        className="rounded-lg border border-slate-200 px-3.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 transition-colors"
-                      >
-                        Reject Proposed Action
-                      </button>
-                      <button
-                        onClick={() => approveRequest(appr.id)}
-                        className="flex items-center gap-1.5 rounded-lg bg-slate-900 px-4 py-1.5 text-xs font-medium text-white hover:bg-slate-800 transition-colors shadow-2xs"
-                      >
-                        <CheckCircle2 className="h-3.5 w-3.5" />
-                        Authorize & Execute
-                      </button>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <button
+                          onClick={() => {
+                            if (activeChangeRequestId === appr.id) {
+                              setActiveChangeRequestId(null);
+                            } else {
+                              setActiveChangeRequestId(appr.id);
+                              setChangeFeedbackText('');
+                            }
+                          }}
+                          className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors ${
+                            activeChangeRequestId === appr.id
+                              ? 'bg-amber-100 text-amber-900 border-amber-300'
+                              : 'border-slate-200 text-slate-700 hover:bg-slate-50'
+                          }`}
+                        >
+                          <RotateCcw className="h-3 w-3" />
+                          <span>Request Changes</span>
+                        </button>
+
+                        <button
+                          onClick={() => rejectRequest(appr.id)}
+                          className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 transition-colors"
+                        >
+                          Reject
+                        </button>
+
+                        <button
+                          onClick={() => approveRequest(appr.id)}
+                          className="flex items-center gap-1.5 rounded-lg bg-slate-900 px-4 py-1.5 text-xs font-semibold text-white hover:bg-slate-800 transition-colors shadow-2xs"
+                        >
+                          <CheckCircle2 className="h-3.5 w-3.5" />
+                          <span>Authorize & Execute</span>
+                        </button>
+                      </div>
                     </div>
+
+                    {/* Inline Change Request Feedback Drawer */}
+                    {activeChangeRequestId === appr.id && (
+                      <div className="p-3.5 rounded-lg border border-amber-200 bg-amber-50/70 space-y-2 animate-fade-in text-xs">
+                        <div className="flex items-center justify-between font-semibold text-amber-900 text-[11px]">
+                          <span>Feedback for {appr.employeeName}:</span>
+                          <button
+                            type="button"
+                            onClick={() => setActiveChangeRequestId(null)}
+                            className="text-amber-700 hover:text-amber-900"
+                          >
+                            <X className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                        <textarea
+                          rows={2}
+                          value={changeFeedbackText}
+                          onChange={(e) => setChangeFeedbackText(e.target.value)}
+                          placeholder={`Specify required revisions for ${appr.employeeName} (e.g. 'Adjust headline to emphasize ROI and reduce ad budget to $40/day')...`}
+                          className="w-full rounded-md border border-amber-300 bg-white p-2 text-xs text-slate-900 placeholder:text-slate-400 focus:outline-hidden focus:ring-1 focus:ring-amber-500"
+                        />
+                        <div className="flex justify-end gap-2 pt-1">
+                          <button
+                            type="button"
+                            onClick={() => setActiveChangeRequestId(null)}
+                            className="px-2.5 py-1 text-xs text-slate-600 hover:text-slate-800"
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleSubmitChanges(appr.id)}
+                            disabled={!changeFeedbackText.trim()}
+                            className="flex items-center gap-1.5 px-3 py-1 bg-amber-800 hover:bg-amber-900 disabled:opacity-50 text-white rounded-md text-xs font-semibold transition-colors cursor-pointer"
+                          >
+                            <Send className="h-3 w-3" />
+                            <span>Send Revision to {appr.employeeName}</span>
+                          </button>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               ))}
@@ -162,13 +239,18 @@ export const InboxView: React.FC = () => {
               </div>
               <div className="divide-y divide-slate-100 rounded-xl border border-slate-200 bg-white overflow-hidden">
                 {pastApprovals.map((appr) => (
-                  <div key={appr.id} className="p-3.5 flex items-center justify-between text-xs">
+                  <div key={appr.id} className="p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
                     <div>
                       <div className="font-semibold text-slate-900">{appr.title}</div>
                       <div className="text-slate-500 text-[11px]">Handled by {appr.employeeName}</div>
+                      {appr.feedback && (
+                        <div className="mt-1 text-[11px] text-amber-800 bg-amber-50 rounded px-2 py-0.5 border border-amber-200 inline-block">
+                          Revision requested: "{appr.feedback}"
+                        </div>
+                      )}
                     </div>
                     <span
-                      className={`font-semibold px-2 py-0.5 rounded text-[11px] ${
+                      className={`font-semibold px-2 py-0.5 rounded text-[11px] shrink-0 self-start sm:self-center ${
                         appr.status === 'approved' ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'
                       }`}
                     >

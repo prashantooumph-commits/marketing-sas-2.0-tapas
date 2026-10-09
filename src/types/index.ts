@@ -23,6 +23,7 @@ export interface Employee {
   pinned?: boolean;
   status: 'active' | 'idle' | 'in_progress';
   isCustom?: boolean;
+  bestFor?: string;
 }
 
 export interface ProductOffer {
@@ -61,6 +62,9 @@ export interface Task {
   id: string;
   workspaceId: string;
   projectId?: string;
+  workflowRunId?: string;
+  workflowStepId?: string;
+  revisionNote?: string;
   title: string;
   employeeId: string;
   employeeName: string;
@@ -74,10 +78,25 @@ export interface Task {
   version: number;
 }
 
+export interface ProjectAsset {
+  id: string;
+  projectId: string;
+  title: string;
+  type: 'document' | 'web_page' | 'article' | 'social_post' | 'video_script' | 'ad_creative' | 'email_sequence' | 'report' | 'schema_markup';
+  employeeCode: string;
+  employeeName: string;
+  createdAt: string;
+  status: 'draft' | 'ready_for_review' | 'approved' | 'published';
+  content?: string;
+  metadata?: Record<string, any>;
+}
+
 export interface ApprovalRequest {
   id: string;
   workspaceId: string;
   projectId?: string;
+  workflowRunId?: string;
+  workflowStepId?: string;
   title: string;
   summary: string;
   employeeId: string;
@@ -89,6 +108,8 @@ export interface ApprovalRequest {
   riskLevel: 'Low' | 'Medium' | 'High';
   createdAt: string;
   reviewedAt?: string;
+  reviewedBy?: string;
+  feedback?: string;
   contextNote?: string;
 }
 
@@ -188,7 +209,24 @@ export interface Deal {
   createdAt: string;
 }
 
-export type ProjectStatus = 'planning' | 'in_progress' | 'needs_review' | 'completed' | 'paused';
+export type GoalIntent =
+  | 'BRAND_FOUNDATION'
+  | 'WEBSITE_LAUNCH'
+  | 'SEO_VISIBILITY'
+  | 'AEO_GEO_VISIBILITY'
+  | 'CONTENT_ENGINE'
+  | 'AWARENESS_CAMPAIGN'
+  | 'LEAD_GENERATION'
+  | 'PRODUCT_LAUNCH'
+  | 'ECOMMERCE_GROWTH'
+  | 'EVENT_WEBINAR'
+  | 'OUTBOUND_SALES'
+  | 'INBOUND_SALES'
+  | 'RETENTION_RENEWAL'
+  | 'REPUTATION_MANAGEMENT'
+  | 'CUSTOM';
+
+export type ProjectStatus = 'planning' | 'ready' | 'in_progress' | 'needs_review' | 'completed' | 'paused';
 
 export interface ProjectStage {
   id: string;
@@ -196,6 +234,23 @@ export interface ProjectStage {
   ownerEmployeeCode: string;
   status: 'completed' | 'in_progress' | 'pending';
   description?: string;
+  type?: 'employee_task' | 'human_approval';
+}
+
+export type ProjectCollaboratorRole = 'project_owner' | 'contributor' | 'approver' | 'viewer';
+
+export interface ProjectCollaborator {
+  teamMemberId: string;
+  name: string;
+  email: string;
+  role: ProjectCollaboratorRole;
+}
+
+export interface ProjectHandoff {
+  fromCode: string;
+  toCode: string;
+  message: string;
+  timestamp: string;
 }
 
 export interface Project {
@@ -207,6 +262,8 @@ export interface Project {
   ownerHumanId?: string;
   participatingEmployeeIds: string[];
   workflowRunId?: string;
+  workflowTemplateId?: string;
+  intent?: GoalIntent;
   dueAt?: string;
   createdAt: string;
   updatedAt: string;
@@ -221,9 +278,121 @@ export interface Project {
   nextImportantAction?: string;
   progressSummary?: string;
   stages?: ProjectStage[];
+  deliverables?: string[];
+  successMetrics?: string[];
+  requiredConnections?: { provider: IntegrationProvider; label: string; ready: boolean }[];
+  approvalPolicies?: string[];
+  humanApproverId?: string;
+  collaborators?: ProjectCollaborator[];
+  handoffs?: ProjectHandoff[];
+  // Phase 2B.2 Business Solution & Orchestration extensions:
+  businessSolutionId?: string;
+  plannedWorkflowTemplateIds?: string[];
+  currentWorkflowIndex?: number;
+  completedWorkflowIds?: string[];
+  upcomingWorkflowIds?: string[];
+  currentPhaseTitle?: string;
+  targetMetricsValues?: Record<string, string>;
+  projectAssets?: ProjectAsset[];
+  connectionBlockers?: string[];
 }
 
-export type WorkflowStepType = 'employee_task' | 'human_approval' | 'condition' | 'wait_schedule' | 'handoff';
+export type WorkflowStepType =
+  | 'employee_task'
+  | 'human_task'
+  | 'human_approval'
+  | 'condition'
+  | 'wait_schedule'
+  | 'handoff';
+
+export type StepImpactCategory =
+  | 'internal_work'
+  | 'public_publishing'
+  | 'paid_advertising'
+  | 'outbound_messaging'
+  | 'new_audience_contact'
+  | 'commercial_commitment'
+  | 'reputation_response'
+  | 'pricing_change'
+  | 'destructive_action';
+
+export interface WorkflowConditionConfig {
+  field: string;
+  operator: 'equals' | 'contains' | 'greater_than' | 'is_true';
+  value: string;
+  thenStepId?: string;
+  elseStepId?: string;
+  thenActionDescription?: string;
+  elseActionDescription?: string;
+}
+
+export interface WorkflowWaitConfig {
+  waitType: 'duration' | 'date_time' | 'simulated_event';
+  durationValue?: string;
+  dateTimeValue?: string;
+  simulatedEventName?: string;
+}
+
+export interface WorkflowHandoffConfig {
+  fromEmployeeCode: string;
+  toEmployeeCode: string;
+  contextArtifacts: string[];
+  handoffNote?: string;
+}
+
+export interface WorkflowApprovalConfig {
+  approverRole: string;
+  approverName?: string;
+  subjectToApprove: string;
+  riskCategory: string;
+  onApproveAction: string;
+  onRequestChangesAction: string;
+}
+
+export interface CustomWorkflowStepConfig {
+  id: string;
+  title: string;
+  type: WorkflowStepType;
+  employeeCode?: string;
+  employeeId?: string;
+  humanAssigneeName?: string;
+  humanAssigneeRole?: string;
+  description: string;
+  inputs?: string[];
+  expectedOutput?: string;
+  requiredForNextStep?: boolean;
+  impactCategory?: StepImpactCategory;
+  requiredConnections?: IntegrationProvider[];
+  conditionConfig?: WorkflowConditionConfig;
+  waitConfig?: WorkflowWaitConfig;
+  handoffConfig?: WorkflowHandoffConfig;
+  approvalConfig?: WorkflowApprovalConfig;
+}
+
+export type WorkflowTriggerType =
+  | 'MANUAL'
+  | 'SCHEDULE'
+  | 'NEW_FORM_SUBMISSION'
+  | 'NEW_LEAD'
+  | 'SOCIAL_COMMENT_KEYWORD'
+  | 'NEW_INBOUND_MESSAGE'
+  | 'NEW_ORDER'
+  | 'DEAL_STAGE_CHANGED'
+  | 'WORKFLOW_COMPLETED'
+  | 'PROJECT_CREATED';
+
+export interface WorkflowTriggerConfig {
+  type: WorkflowTriggerType;
+  label: string;
+  description: string;
+  scheduleRecurrence?: 'daily' | 'weekdays' | 'weekly' | 'monthly' | 'custom';
+  scheduleTime?: string;
+  scheduleDayOfWeek?: string;
+  keyword?: string;
+  sourceChannel?: string;
+  parentWorkflowId?: string;
+  simulatedEventNote?: string;
+}
 
 export interface WorkflowStep {
   id: string;
@@ -232,21 +401,76 @@ export interface WorkflowStep {
   employeeId?: string;
   employeeCode?: string;
   description: string;
-  status: 'pending' | 'in_progress' | 'waiting_approval' | 'completed' | 'skipped';
+  status: 'pending' | 'in_progress' | 'waiting_approval' | 'completed' | 'skipped' | 'changes_requested' | 'blocked';
   outputArtifactId?: string;
   approvalRequestId?: string;
+  blockedReason?: string;
+  requiredConnection?: IntegrationProvider;
+  revisionFeedback?: string;
+}
+
+export interface BusinessSolution {
+  id: string; // 'bs-01' to 'bs-15'
+  code: string; // 'BS01' to 'BS15'
+  title: string;
+  outcomeCategory: string; // one of 15 outcome categories
+  shortPromise: string;
+  description: string;
+  bestFor: string;
+  workflowTemplateIds: string[];
+  employeeIds: string[];
+  requiredConnectionTypes: string[];
+  optionalConnectionTypes: string[];
+  approvalGateTypes: string[];
+  majorOutputs: string[];
+  successMetrics: string[];
+  recommendedNextSolutionIds: string[];
+  tags: string[];
+  featured: boolean;
+  complexity: 'starter' | 'moderate' | 'advanced';
 }
 
 export interface WorkflowTemplate {
   id: string;
+  code?: string; // 'WF01' to 'WF54'
+  legacyId?: string; // legacy backwards-compat ID
   name: string;
+  title?: string;
   outcome: string;
+  outcomeCategory?: string;
   shortDescription: string;
+  description?: string;
   category: string;
+  bestFor?: string;
+  employeeIds?: string[];
   participatingEmployeeIds: string[];
   expectedSteps: { title: string; employeeCode: string; type: WorkflowStepType; description: string }[];
+  steps?: { title: string; employeeCode: string; type: WorkflowStepType; description: string }[];
   approvalPoints: string[];
+  approvalGates?: string[];
   typicalDuration: string;
+  requiredConnectionTypes?: string[];
+  optionalConnectionTypes?: string[];
+  inputs?: string[];
+  outputs?: string[];
+  successMetrics?: string[];
+  possibleBlockers?: string[];
+  recommendedNextWorkflowIds?: string[];
+  tags?: string[];
+  featured?: boolean;
+  complexity?: 'simple' | 'moderate' | 'comprehensive';
+  templateSource?: 'built_in' | 'personal';
+  exampleScenario?: string;
+  // Phase 2C.1 Reusable Custom Template & Authoring fields:
+  status?: 'draft' | 'active' | 'archived';
+  createdAt?: string;
+  updatedAt?: string;
+  version?: number;
+  createdBy?: string;
+  editable?: boolean;
+  workspaceId?: string;
+  trigger?: WorkflowTriggerConfig;
+  richSteps?: CustomWorkflowStepConfig[];
 }
 
 export interface WorkflowRun {
@@ -255,7 +479,7 @@ export interface WorkflowRun {
   templateId: string;
   templateName: string;
   title: string;
-  status: 'running' | 'paused' | 'completed';
+  status: 'ready_to_start' | 'running' | 'paused' | 'completed';
   projectId: string;
   currentStepIndex: number;
   steps: WorkflowStep[];
@@ -292,12 +516,14 @@ export interface IntegrationConnection {
   parentConnectionId?: string; // e.g. Meta Business -> Page -> Instagram
 }
 
+export type WorkspaceRole = 'owner' | 'admin' | 'operator' | 'approver' | 'client_reviewer' | 'member' | 'client_viewer';
+
 export interface TeamMember {
   id: string;
   workspaceId: string;
   name: string;
   email: string;
-  role: 'owner' | 'admin' | 'member' | 'client_viewer';
+  role: WorkspaceRole;
   avatarInitials: string;
   status: 'active' | 'invited';
   invitedAt: string;

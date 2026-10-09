@@ -19,6 +19,12 @@ import {
   TeamMember,
   ActivityEvent,
   ScheduledMeeting,
+  BusinessSolution,
+  ProjectAsset,
+  WorkflowStep,
+  ProjectStage,
+  ProjectCollaborator,
+  ProjectCollaboratorRole,
   AppView
 } from '../types';
 import { INITIAL_EMPLOYEES } from '../data/employees';
@@ -36,6 +42,7 @@ import {
   INITIAL_PROJECTS,
   INITIAL_WORKFLOW_RUNS,
   INITIAL_WORKFLOW_TEMPLATES,
+  INITIAL_BUSINESS_SOLUTIONS,
   INITIAL_TEAM_MEMBERS,
   INITIAL_ACTIVITY_EVENTS,
   INITIAL_SCHEDULED_MEETINGS
@@ -56,7 +63,9 @@ interface OoumphContextType {
   isCustomerCheckoutOpen: boolean;
   isGoalPlannerOpen: boolean;
   isProductGuideOpen: boolean;
+  isEmployeeChooserOpen: boolean;
   goalPlannerInitialGoal: string;
+  employeeChooserInitialTask: string;
   selectedProjectId: string;
   demoMode: 'seeded' | 'fresh';
 
@@ -76,6 +85,7 @@ interface OoumphContextType {
   projects: Project[];
   workflowRuns: WorkflowRun[];
   workflowTemplates: WorkflowTemplate[];
+  businessSolutions: BusinessSolution[];
   integrationConnections: IntegrationConnection[];
   teamMembers: TeamMember[];
   activityEvents: ActivityEvent[];
@@ -95,8 +105,37 @@ interface OoumphContextType {
   setIsCustomerCheckoutOpen: (open: boolean) => void;
   setIsGoalPlannerOpen: (open: boolean) => void;
   setIsProductGuideOpen: (open: boolean) => void;
+  setIsEmployeeChooserOpen: (open: boolean) => void;
   setGoalPlannerInitialGoal: (goal: string) => void;
+  setEmployeeChooserInitialTask: (task: string) => void;
   setSelectedProjectId: (id: string) => void;
+  selectedSolutionId: string | null;
+  setSelectedSolutionId: (id: string | null) => void;
+  selectedWorkflowTemplateId: string | null;
+  setSelectedWorkflowTemplateId: (id: string | null) => void;
+  isSolutionDetailOpen: boolean;
+  setIsSolutionDetailOpen: (open: boolean) => void;
+  isWorkflowDetailOpen: boolean;
+  setIsWorkflowDetailOpen: (open: boolean) => void;
+  isWorkflowSetupWizardOpen: boolean;
+  setIsWorkflowSetupWizardOpen: (open: boolean) => void;
+  wizardTargetWorkflowId: string | null;
+  setWizardTargetWorkflowId: (id: string | null) => void;
+  wizardTargetSolutionId: string | null;
+  setWizardTargetSolutionId: (id: string | null) => void;
+  openWorkflowSetup: (workflowId: string) => void;
+  openBusinessSolutionSetup: (solutionId: string) => void;
+  isAddTeammateModalOpen: boolean;
+  setIsAddTeammateModalOpen: (open: boolean) => void;
+  addTeammateTargetProjectId: string | null;
+  setAddTeammateTargetProjectId: (id: string | null) => void;
+  openAddTeammateModal: (projectId: string) => void;
+  addProjectTeammate: (projectId: string, teammate: { type: 'ai' | 'human'; employeeId?: string; memberId?: string; taskHelp?: string; role?: ProjectCollaboratorRole }) => void;
+  advanceWorkflowPhase: (projectId: string) => void;
+  addWorkflowToProject: (projectId: string, workflowTemplateId: string) => void;
+  submitRevisionForStep: (projectId: string, stepId: string, revisionSummary: string) => void;
+  retryBlockedStep: (projectId: string, stepId: string) => void;
+  skipOptionalStep: (projectId: string, stepId: string) => void;
   switchWorkspace: (workspaceId: string) => void;
 
   // Business Handlers
@@ -104,6 +143,7 @@ interface OoumphContextType {
   toggleTakeover: (employeeId: string) => void;
   approveRequest: (approvalId: string) => void;
   rejectRequest: (approvalId: string) => void;
+  requestChangesOnApproval: (approvalId: string, feedback: string) => void;
   updateTask: (taskId: string, partial: Partial<Task>) => void;
   updateWebsiteHeadline: (headline: string, subheading?: string) => void;
   rollbackWebsiteVersion: (versionNumber: number) => void;
@@ -133,8 +173,12 @@ interface OoumphContextType {
   // Multi-Agent & Project Handlers
   advanceWorkflowStep: (runId: string, stepId: string) => void;
   startWorkflowFromTemplate: (templateId: string, customTitle?: string) => string;
-  createProject: (projectData: Omit<Project, 'id' | 'createdAt' | 'updatedAt'>) => void;
+  createProject: (projectData: Omit<Project, 'id' | 'createdAt' | 'updatedAt'>) => string;
   updateProject: (projectId: string, partial: Partial<Project>) => void;
+  startProject: (projectId: string) => void;
+  createProjectTask: (taskData: Omit<Task, 'id' | 'createdAt' | 'version'>) => string;
+  createApprovalRequest: (requestData: Omit<ApprovalRequest, 'id' | 'createdAt'>) => string;
+  createWorkflowRun: (runData: Omit<WorkflowRun, 'id'>) => string;
 
   // Integrations & Settings Handlers
   updateIntegrationStatus: (connectionId: string, status: IntegrationConnection['status'], permissionIssues?: string[]) => void;
@@ -174,8 +218,19 @@ export const OoumphProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [isCustomerCheckoutOpen, setIsCustomerCheckoutOpen] = useState(false);
   const [isGoalPlannerOpen, setIsGoalPlannerOpen] = useState(false);
   const [isProductGuideOpen, setIsProductGuideOpen] = useState(false);
+  const [isEmployeeChooserOpen, setIsEmployeeChooserOpen] = useState(false);
   const [goalPlannerInitialGoal, setGoalPlannerInitialGoal] = useState('');
+  const [employeeChooserInitialTask, setEmployeeChooserInitialTask] = useState('');
   const [selectedProjectId, setSelectedProjectId] = useState<string>('proj-1');
+  const [selectedSolutionId, setSelectedSolutionId] = useState<string | null>(null);
+  const [selectedWorkflowTemplateId, setSelectedWorkflowTemplateId] = useState<string | null>(null);
+  const [isSolutionDetailOpen, setIsSolutionDetailOpen] = useState(false);
+  const [isWorkflowDetailOpen, setIsWorkflowDetailOpen] = useState(false);
+  const [isWorkflowSetupWizardOpen, setIsWorkflowSetupWizardOpen] = useState(false);
+  const [wizardTargetWorkflowId, setWizardTargetWorkflowId] = useState<string | null>(null);
+  const [wizardTargetSolutionId, setWizardTargetSolutionId] = useState<string | null>(null);
+  const [isAddTeammateModalOpen, setIsAddTeammateModalOpen] = useState(false);
+  const [addTeammateTargetProjectId, setAddTeammateTargetProjectId] = useState<string | null>(null);
   const [demoMode, setDemoModeState] = useState<'seeded' | 'fresh'>('seeded');
 
   // Business state
@@ -193,6 +248,7 @@ export const OoumphProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [projects, setProjects] = useState<Project[]>(INITIAL_PROJECTS);
   const [workflowRuns, setWorkflowRuns] = useState<WorkflowRun[]>(INITIAL_WORKFLOW_RUNS);
   const [workflowTemplates] = useState<WorkflowTemplate[]>(INITIAL_WORKFLOW_TEMPLATES);
+  const [businessSolutions] = useState<BusinessSolution[]>(INITIAL_BUSINESS_SOLUTIONS);
   const [integrationConnections, setIntegrationConnections] = useState<IntegrationConnection[]>(INITIAL_INTEGRATION_CONNECTIONS);
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>(INITIAL_TEAM_MEMBERS);
   const [activityEvents, setActivityEvents] = useState<ActivityEvent[]>(INITIAL_ACTIVITY_EVENTS);
@@ -490,6 +546,84 @@ export const OoumphProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       target.employeeName,
       'Approval Rejected',
       `Rejected: "${target.title}". Proposed action cancelled.`,
+      'warning'
+    );
+  };
+
+  const requestChangesOnApproval = (approvalId: string, feedback: string) => {
+    const target = approvals.find((a) => a.id === approvalId);
+    if (!target) return;
+
+    const trimmedFeedback = feedback.trim() || 'Please revise the proposed output according to feedback.';
+
+    setApprovals((prev) =>
+      prev.map((a) =>
+        a.id === approvalId
+          ? {
+              ...a,
+              status: 'rejected',
+              feedback: trimmedFeedback,
+              reviewedAt: new Date().toISOString()
+            }
+          : a
+      )
+    );
+
+    setTasks((prev) =>
+      prev.map((t) =>
+        t.employeeId === target.employeeId && (t.status === 'needs_review' || t.projectId === target.projectId)
+          ? {
+              ...t,
+              status: 'in_progress' as const,
+              revisionNote: trimmedFeedback,
+              description: `${t.description} (Revision: ${trimmedFeedback})`
+            }
+          : t
+      )
+    );
+
+    // Update workflow run step status to changes_requested
+    if (target.workflowRunId) {
+      setWorkflowRuns((prev) =>
+        prev.map((r) => {
+          if (r.id !== target.workflowRunId) return r;
+          return {
+            ...r,
+            steps: r.steps.map((s) =>
+              s.id === target.workflowStepId || (!target.workflowStepId && s.status === 'waiting_approval')
+                ? { ...s, status: 'changes_requested' as const, revisionFeedback: trimmedFeedback }
+                : s
+            )
+          };
+        })
+      );
+    }
+
+    // Update project nextImportantAction
+    if (target.projectId) {
+      setProjects((prev) =>
+        prev.map((p) => {
+          if (p.id !== target.projectId) return p;
+          return {
+            ...p,
+            nextImportantAction: `Revision requested: "${trimmedFeedback.slice(0, 50)}...". Specialist updating deliverable.`
+          };
+        })
+      );
+    }
+
+    // Also send feedback directly into the employee conversation so they see it
+    if (target.employeeId) {
+      sendMessage(
+        target.employeeId,
+        `[Feedback on Approval "${target.title}"]: ${trimmedFeedback}`
+      );
+    }
+
+    logEvent(
+      target.employeeName,
+      'Changes Requested',
+      `Revision requested on "${target.title}": "${trimmedFeedback.slice(0, 50)}..."`,
       'warning'
     );
   };
@@ -901,24 +1035,66 @@ export const OoumphProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   // MULTI-AGENT & PROJECT HANDLERS
   const advanceWorkflowStep = (runId: string, stepId: string) => {
+    let nextStepToProcess: WorkflowStep | null = null;
+    let completedStepToProcess: WorkflowStep | null = null;
+    let associatedProjectId = '';
+
     setWorkflowRuns((prev) =>
       prev.map((run) => {
         if (run.id !== runId) return run;
         const stepIndex = run.steps.findIndex((s) => s.id === stepId);
         if (stepIndex === -1) return run;
 
+        associatedProjectId = run.projectId;
+        completedStepToProcess = run.steps[stepIndex];
+
         const updatedSteps = [...run.steps];
-        updatedSteps[stepIndex] = { ...updatedSteps[stepIndex], status: 'completed' };
+        updatedSteps[stepIndex] = { ...updatedSteps[stepIndex], status: 'completed' as const };
 
         let nextIndex = stepIndex + 1;
         let nextStatus: WorkflowRun['status'] = run.status;
 
         if (nextIndex < updatedSteps.length) {
           const nextStep = updatedSteps[nextIndex];
-          updatedSteps[nextIndex] = {
-            ...nextStep,
-            status: nextStep.type === 'human_approval' ? 'waiting_approval' : 'in_progress'
-          };
+          nextStepToProcess = nextStep;
+
+          // Check if next step requires an integration connection
+          const titleLower = nextStep.title.toLowerCase();
+          const descLower = nextStep.description.toLowerCase();
+          let isBlocked = false;
+          let blockerReason = '';
+
+          if (titleLower.includes('meta') || titleLower.includes('instagram') || titleLower.includes('facebook') || descLower.includes('meta') || descLower.includes('instagram')) {
+            const conn = integrationConnections.find((c) => c.provider === 'meta_business' || c.provider === 'facebook_page' || c.provider === 'instagram_pro');
+            if (!conn || conn.status !== 'connected') {
+              isBlocked = true;
+              blockerReason = 'Connection required: Meta / Instagram account must be connected in Settings.';
+            }
+          } else if (titleLower.includes('google ads') || descLower.includes('google ads')) {
+            const conn = integrationConnections.find((c) => c.provider === 'google_ads');
+            if (!conn || conn.status !== 'connected') {
+              isBlocked = true;
+              blockerReason = 'Connection required: Google Ads account must be connected in Settings.';
+            }
+          }
+
+          if (isBlocked) {
+            updatedSteps[nextIndex] = {
+              ...nextStep,
+              status: 'blocked' as const,
+              blockedReason: blockerReason
+            };
+          } else if (nextStep.type === 'human_approval') {
+            updatedSteps[nextIndex] = {
+              ...nextStep,
+              status: 'waiting_approval' as const
+            };
+          } else {
+            updatedSteps[nextIndex] = {
+              ...nextStep,
+              status: 'in_progress' as const
+            };
+          }
         } else {
           nextStatus = 'completed';
         }
@@ -940,10 +1116,409 @@ export const OoumphProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         };
       })
     );
+
+    // Update project with asset generation, handoffs, and stage progression
+    if (completedStepToProcess && associatedProjectId) {
+      const completedStep = completedStepToProcess as WorkflowStep;
+      const targetEmp = employees.find((e) => e.code === completedStep.employeeCode);
+
+      const assetType = completedStep.title.toLowerCase().includes('copy') ? 'ad_creative' :
+        completedStep.title.toLowerCase().includes('page') || completedStep.title.toLowerCase().includes('site') ? 'web_page' :
+        completedStep.title.toLowerCase().includes('video') ? 'video_script' :
+        completedStep.title.toLowerCase().includes('seo') || completedStep.title.toLowerCase().includes('schema') ? 'schema_markup' : 'document';
+
+      const newAsset: ProjectAsset = {
+        id: `asset-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+        projectId: associatedProjectId,
+        title: `${completedStep.title} Deliverable`,
+        type: assetType as any,
+        employeeCode: completedStep.employeeCode || 'A01',
+        employeeName: targetEmp?.name || 'Specialist',
+        createdAt: new Date().toISOString(),
+        status: 'approved',
+        content: `Final verified deliverable for "${completedStep.title}". Generated autonomously with full parameter alignment.`
+      };
+
+      const nextStep = nextStepToProcess as WorkflowStep | null;
+      const handoffObj = nextStep ? {
+        fromCode: completedStep.employeeCode || 'SYS',
+        toCode: nextStep.employeeCode || 'SYS',
+        message: `${completedStep.title} completed, handed off to ${nextStep.employeeCode} for ${nextStep.title}`,
+        timestamp: new Date().toISOString()
+      } : undefined;
+
+      setProjects((prev) =>
+        prev.map((p) => {
+          if (p.id !== associatedProjectId) return p;
+          const currentStageIdx = (p.stages || []).findIndex((stg) => stg.name === completedStep.title);
+          const updatedStages = (p.stages || []).map((stg, i) =>
+            i === currentStageIdx ? { ...stg, status: 'completed' as const } :
+            i === currentStageIdx + 1 && nextStep ? { ...stg, status: 'in_progress' as const } : stg
+          );
+
+          const hasUpcoming = p.upcomingWorkflowIds && p.upcomingWorkflowIds.length > 0;
+          return {
+            ...p,
+            projectAssets: [newAsset, ...(p.projectAssets || [])],
+            handoffs: handoffObj ? [...(p.handoffs || []), handoffObj] : p.handoffs,
+            stages: updatedStages,
+            nextImportantAction: nextStep
+              ? nextStep.type === 'human_approval'
+                ? `Review pending approval gate: "${nextStep.title}"`
+                : nextStep.status === 'blocked'
+                ? `Action needed: ${nextStep.blockedReason || 'Connection required before stage can run.'}`
+                : `Active: ${nextStep.employeeCode} executing "${nextStep.title}"`
+              : hasUpcoming
+              ? `Phase ${((p.currentWorkflowIndex || 0) + 1)} Complete · Click Prepare Next Phase to advance.`
+              : 'Project completed successfully. All deliverables archived.',
+            progressSummary: nextStep
+              ? `Milestone completed. Handoff to ${nextStep.employeeCode} for "${nextStep.title}".`
+              : hasUpcoming
+              ? `Phase ${((p.currentWorkflowIndex || 0) + 1)} delivered. Intermediate outputs staged for next phase.`
+              : 'All project milestones completed successfully.'
+          };
+        })
+      );
+
+      // If next step is waiting_approval, generate the ApprovalRequest
+      if (nextStep && nextStep.type === 'human_approval') {
+        const reqId = `appr-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`;
+        const nextEmp = employees.find((e) => e.code === nextStep.employeeCode);
+        const newAppr: ApprovalRequest = {
+          id: reqId,
+          workspaceId: activeWorkspaceId,
+          projectId: associatedProjectId,
+          workflowRunId: runId,
+          workflowStepId: nextStep.id,
+          title: nextStep.title,
+          summary: `${nextStep.description} — Prepared by ${nextStep.employeeCode || 'Lead Specialist'}. Awaiting human signoff.`,
+          employeeId: nextEmp?.id || 'emp-a01',
+          employeeName: nextEmp?.name || 'Lead Specialist',
+          employeeCode: nextStep.employeeCode || 'A01',
+          artifactType: nextStep.title,
+          artifactPayload: { stepTitle: nextStep.title, description: nextStep.description },
+          status: 'pending',
+          riskLevel: 'Medium',
+          createdAt: new Date().toISOString(),
+          contextNote: 'Human oversight gate reached. Approval required before proceeding.'
+        };
+        setApprovals((prev) => [newAppr, ...prev]);
+      }
+    }
+  };
+
+  const advanceWorkflowPhase = (projectId: string) => {
+    const proj = projects.find((p) => p.id === projectId);
+    if (!proj || !proj.upcomingWorkflowIds || proj.upcomingWorkflowIds.length === 0) return;
+
+    const nextTemplateId = proj.upcomingWorkflowIds[0];
+    const nextTemplate = workflowTemplates.find((t) => t.id === nextTemplateId);
+    if (!nextTemplate) return;
+
+    const newIndex = (proj.currentWorkflowIndex || 0) + 1;
+    const completedIds = [...(proj.completedWorkflowIds || []), proj.workflowTemplateId || ''];
+    const remainingUpcoming = proj.upcomingWorkflowIds.slice(1);
+
+    const newRunId = `run-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`;
+
+    const newSteps: WorkflowStep[] = nextTemplate.expectedSteps.map((s, idx) => ({
+      id: `step-${newRunId}-${idx + 1}`,
+      title: s.title,
+      type: s.type,
+      employeeCode: s.employeeCode,
+      employeeId: employees.find((e) => e.code === s.employeeCode)?.id,
+      description: s.description,
+      status: idx === 0 ? ('in_progress' as const) : ('pending' as const)
+    }));
+
+    const newStages: ProjectStage[] = nextTemplate.expectedSteps.map((s, idx) => ({
+      id: `stg-${projectId}-${newIndex + 1}-${idx + 1}`,
+      name: s.title,
+      ownerEmployeeCode: s.employeeCode,
+      status: idx === 0 ? ('in_progress' as const) : ('pending' as const),
+      type: s.type === 'human_approval' ? 'human_approval' : 'employee_task',
+      description: s.description
+    }));
+
+    const newRun: WorkflowRun = {
+      id: newRunId,
+      workspaceId: proj.workspaceId,
+      templateId: nextTemplate.id,
+      templateName: nextTemplate.name,
+      title: `${proj.title} · Phase ${newIndex + 1}: ${nextTemplate.name}`,
+      status: 'running',
+      projectId: proj.id,
+      currentStepIndex: 0,
+      steps: newSteps,
+      startedAt: new Date().toISOString()
+    };
+
+    setWorkflowRuns((prev) => [newRun, ...prev]);
+
+    setProjects((prev) =>
+      prev.map((p) =>
+        p.id === projectId
+          ? {
+              ...p,
+              workflowTemplateId: nextTemplate.id,
+              workflowRunId: newRunId,
+              currentWorkflowIndex: newIndex,
+              completedWorkflowIds: completedIds,
+              upcomingWorkflowIds: remainingUpcoming,
+              currentPhaseTitle: `Phase ${newIndex + 1}: ${nextTemplate.name}`,
+              status: 'in_progress',
+              stages: newStages,
+              nextImportantAction: `Active: ${nextTemplate.expectedSteps[0]?.employeeCode} executing "${nextTemplate.expectedSteps[0]?.title}"`,
+              progressSummary: `Advanced to Phase ${newIndex + 1}: ${nextTemplate.name}. Reusing approved context and deliverables.`,
+              updatedAt: new Date().toISOString()
+            }
+          : p
+      )
+    );
+
+    logEvent(
+      'Multi-Agent Coordinator',
+      'Phase Advanced',
+      `Project "${proj.title}" advanced to Phase ${newIndex + 1}: "${nextTemplate.name}".`,
+      'success'
+    );
+  };
+
+  const addWorkflowToProject = (projectId: string, workflowTemplateId: string) => {
+    const proj = projects.find((p) => p.id === projectId);
+    const tmpl = workflowTemplates.find((t) => t.id === workflowTemplateId);
+    if (!proj || !tmpl) return;
+
+    setProjects((prev) =>
+      prev.map((p) =>
+        p.id === projectId
+          ? {
+              ...p,
+              upcomingWorkflowIds: [...(p.upcomingWorkflowIds || []), workflowTemplateId],
+              plannedWorkflowTemplateIds: [...(p.plannedWorkflowTemplateIds || []), workflowTemplateId],
+              nextImportantAction: `Upcoming workflow queued: "${tmpl.name}" added to project execution plan.`
+            }
+          : p
+      )
+    );
+
+    logEvent(
+      'Workflow Coordinator',
+      'Workflow Chained',
+      `Appended workflow "${tmpl.name}" to project "${proj.title}".`,
+      'info'
+    );
+  };
+
+  const submitRevisionForStep = (projectId: string, stepId: string, revisionSummary: string) => {
+    const trimmed = revisionSummary.trim() || 'Updated deliverable based on reviewer feedback.';
+
+    setWorkflowRuns((prev) =>
+      prev.map((run) => {
+        if (run.projectId !== projectId) return run;
+        return {
+          ...run,
+          steps: run.steps.map((s) =>
+            s.id === stepId
+              ? { ...s, status: 'waiting_approval' as const, revisionFeedback: trimmed }
+              : s
+          )
+        };
+      })
+    );
+
+    // Also update approval request
+    setApprovals((prev) =>
+      prev.map((a) =>
+        a.workflowStepId === stepId
+          ? { ...a, status: 'pending' as const, contextNote: `Revision submitted: "${trimmed}". Awaiting re-review.` }
+          : a
+      )
+    );
+
+    setProjects((prev) =>
+      prev.map((p) =>
+        p.id === projectId
+          ? {
+              ...p,
+              nextImportantAction: `Revised deliverable submitted: "${trimmed.slice(0, 50)}...". Ready for review.`
+            }
+          : p
+      )
+    );
+
+    logEvent(
+      'Specialist',
+      'Revision Submitted',
+      `Deliverable revised: "${trimmed}". Resubmitted to approval gate.`,
+      'success'
+    );
+  };
+
+  const retryBlockedStep = (projectId: string, stepId: string) => {
+    // Check if relevant connection is now active
+    setWorkflowRuns((prev) =>
+      prev.map((run) => {
+        if (run.projectId !== projectId) return run;
+        return {
+          ...run,
+          steps: run.steps.map((s) =>
+            s.id === stepId && s.status === 'blocked'
+              ? { ...s, status: 'in_progress' as const, blockedReason: undefined }
+              : s
+          )
+        };
+      })
+    );
+
+    setProjects((prev) =>
+      prev.map((p) =>
+        p.id === projectId
+          ? {
+              ...p,
+              nextImportantAction: 'Connection verified. Stage execution resumed.'
+            }
+          : p
+      )
+    );
+
+    logEvent('System', 'Connection Verified', 'Blocked stage unblocked and execution resumed.', 'success');
+  };
+
+  const skipOptionalStep = (projectId: string, stepId: string) => {
+    let runId = '';
+    setWorkflowRuns((prev) =>
+      prev.map((run) => {
+        if (run.projectId !== projectId) return run;
+        runId = run.id;
+        return {
+          ...run,
+          steps: run.steps.map((s) =>
+            s.id === stepId ? { ...s, status: 'skipped' as const } : s
+          )
+        };
+      })
+    );
+
+    if (runId) {
+      advanceWorkflowStep(runId, stepId);
+    }
+    logEvent('Operator', 'Step Skipped', 'Optional workflow step was skipped by operator.', 'info');
+  };
+
+  const addProjectTeammate = (
+    projectId: string,
+    teammate: {
+      type: 'ai' | 'human';
+      employeeId?: string;
+      memberId?: string;
+      taskHelp?: string;
+      role?: ProjectCollaboratorRole;
+    }
+  ) => {
+    const targetProject = projects.find((p) => p.id === projectId);
+    if (!targetProject) return;
+
+    if (teammate.type === 'ai' && teammate.employeeId) {
+      const emp = employees.find((e) => e.id === teammate.employeeId);
+      if (!emp) return;
+
+      const newTaskId = `task-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`;
+      const newTask: Task = {
+        id: newTaskId,
+        workspaceId: targetProject.workspaceId,
+        projectId: targetProject.id,
+        workflowRunId: targetProject.workflowRunId,
+        title: `Consultation: ${teammate.taskHelp || 'Provide specialist deliverable support'}`,
+        employeeId: emp.id,
+        employeeName: emp.name,
+        employeeCode: emp.code,
+        status: 'pending',
+        category: 'Project Support',
+        description: teammate.taskHelp || `Assigned to collaborate on "${targetProject.title}".`,
+        outputData: null,
+        createdAt: new Date().toISOString(),
+        version: 1
+      };
+
+      setTasks((prev) => [newTask, ...prev]);
+
+      setProjects((prev) =>
+        prev.map((p) =>
+          p.id === projectId
+            ? {
+                ...p,
+                participatingEmployeeIds: Array.from(new Set([...p.participatingEmployeeIds, emp.id]))
+              }
+            : p
+        )
+      );
+
+      logEvent(
+        emp.name,
+        'Teammate Added',
+        `${emp.name} (${emp.code}) added to project "${targetProject.title}". Task created: "${newTask.title}".`,
+        'success'
+      );
+    } else if (teammate.type === 'human' && teammate.memberId) {
+      const member = teamMembers.find((m) => m.id === teammate.memberId);
+      if (!member) return;
+
+      const newCollab: ProjectCollaborator = {
+        teamMemberId: member.id,
+        name: member.name,
+        email: member.email,
+        role: teammate.role || 'contributor'
+      };
+
+      setProjects((prev) =>
+        prev.map((p) =>
+          p.id === projectId
+            ? {
+                ...p,
+                collaborators: [...(p.collaborators || []), newCollab]
+              }
+            : p
+        )
+      );
+
+      logEvent(
+        'Workspace Admin',
+        'Collaborator Assigned',
+        `${member.name} assigned as ${newCollab.role} on project "${targetProject.title}".`,
+        'info'
+      );
+    }
+  };
+
+  const openWorkflowSetup = (workflowId: string) => {
+    setWizardTargetWorkflowId(workflowId);
+    setWizardTargetSolutionId(null);
+    setIsWorkflowDetailOpen(false);
+    setIsSolutionDetailOpen(false);
+    setIsWorkflowSetupWizardOpen(true);
+  };
+
+  const openBusinessSolutionSetup = (solutionId: string) => {
+    setWizardTargetSolutionId(solutionId);
+    setWizardTargetWorkflowId(null);
+    setIsWorkflowDetailOpen(false);
+    setIsSolutionDetailOpen(false);
+    setIsWorkflowSetupWizardOpen(true);
+  };
+
+  const openAddTeammateModal = (projectId: string) => {
+    setAddTeammateTargetProjectId(projectId);
+    setIsAddTeammateModalOpen(true);
   };
 
   const startWorkflowFromTemplate = (templateId: string, customTitle?: string): string => {
-    const template = workflowTemplates.find((t) => t.id === templateId);
+    const template = workflowTemplates.find(
+      (t) =>
+        t.id === templateId ||
+        t.legacyId === templateId ||
+        t.code?.toLowerCase() === templateId.toLowerCase()
+    );
     if (!template) return '';
 
     const newRunId = `run-${Date.now()}`;
@@ -1018,6 +1593,94 @@ export const OoumphProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     setProjects((prev) =>
       prev.map((p) => (p.id === projectId ? { ...p, ...partial, updatedAt: new Date().toISOString() } : p))
     );
+  };
+
+  const startProject = (projectId: string) => {
+    setProjects((prev) =>
+      prev.map((p) => {
+        if (p.id !== projectId) return p;
+        const updatedStages = p.stages?.map((s, idx) => ({
+          ...s,
+          status: idx === 0 ? ('in_progress' as const) : s.status
+        }));
+        return {
+          ...p,
+          status: 'in_progress',
+          stages: updatedStages,
+          updatedAt: new Date().toISOString(),
+          progressSummary: `Execution initiated by operator. Milestone "${p.stages?.[0]?.name || 'Initial Phase'}" is actively running.`,
+          nextImportantAction: `Active: Review deliverables as specialists execute milestone 1.`
+        };
+      })
+    );
+
+    // Also start any linked workflow run
+    setWorkflowRuns((prev) =>
+      prev.map((r) => {
+        if (r.projectId !== projectId) return r;
+        return {
+          ...r,
+          status: 'running',
+          steps: r.steps.map((s, idx) => ({
+            ...s,
+            status: idx === 0 ? ('in_progress' as const) : s.status
+          }))
+        };
+      })
+    );
+
+    // Also start the first pending project task if one exists
+    setTasks((prev) => {
+      let firstUpdated = false;
+      return prev.map((t) => {
+        if (t.projectId === projectId && t.status === 'pending' && !firstUpdated) {
+          firstUpdated = true;
+          return { ...t, status: 'in_progress' as const };
+        }
+        return t;
+      });
+    });
+
+    const targetProject = projects.find((p) => p.id === projectId);
+    logEvent(
+      'Initiative Lead',
+      'Project Started',
+      `Execution officially initiated for "${targetProject?.title || projectId}". Specialists activated.`,
+      'success'
+    );
+  };
+
+  const createProjectTask = (taskData: Omit<Task, 'id' | 'createdAt' | 'version'>): string => {
+    const newTaskId = `task-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`;
+    const newTask: Task = {
+      ...taskData,
+      id: newTaskId,
+      createdAt: new Date().toISOString(),
+      version: 1
+    };
+    setTasks((prev) => [newTask, ...prev]);
+    return newTaskId;
+  };
+
+  const createApprovalRequest = (requestData: Omit<ApprovalRequest, 'id' | 'createdAt'>): string => {
+    const newApprId = `appr-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`;
+    const newAppr: ApprovalRequest = {
+      ...requestData,
+      id: newApprId,
+      createdAt: new Date().toISOString()
+    };
+    setApprovals((prev) => [newAppr, ...prev]);
+    return newApprId;
+  };
+
+  const createWorkflowRun = (runData: Omit<WorkflowRun, 'id'>): string => {
+    const newRunId = `run-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`;
+    const newRun: WorkflowRun = {
+      ...runData,
+      id: newRunId
+    };
+    setWorkflowRuns((prev) => [newRun, ...prev]);
+    return newRunId;
   };
 
   // INTEGRATION & SETTINGS HANDLERS
@@ -1229,7 +1892,9 @@ export const OoumphProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         isCustomerCheckoutOpen,
         isGoalPlannerOpen,
         isProductGuideOpen,
+        isEmployeeChooserOpen,
         goalPlannerInitialGoal,
+        employeeChooserInitialTask,
         selectedProjectId,
         demoMode,
         activeWorkspace,
@@ -1247,6 +1912,7 @@ export const OoumphProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         projects,
         workflowRuns,
         workflowTemplates,
+        businessSolutions,
         integrationConnections,
         teamMembers,
         activityEvents,
@@ -1264,13 +1930,43 @@ export const OoumphProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         setIsCustomerCheckoutOpen,
         setIsGoalPlannerOpen,
         setIsProductGuideOpen,
+        setIsEmployeeChooserOpen,
         setGoalPlannerInitialGoal,
+        setEmployeeChooserInitialTask,
         setSelectedProjectId,
+        selectedSolutionId,
+        setSelectedSolutionId,
+        selectedWorkflowTemplateId,
+        setSelectedWorkflowTemplateId,
+        isSolutionDetailOpen,
+        setIsSolutionDetailOpen,
+        isWorkflowDetailOpen,
+        setIsWorkflowDetailOpen,
+        isWorkflowSetupWizardOpen,
+        setIsWorkflowSetupWizardOpen,
+        wizardTargetWorkflowId,
+        setWizardTargetWorkflowId,
+        wizardTargetSolutionId,
+        setWizardTargetSolutionId,
+        openWorkflowSetup,
+        openBusinessSolutionSetup,
+        isAddTeammateModalOpen,
+        setIsAddTeammateModalOpen,
+        addTeammateTargetProjectId,
+        setAddTeammateTargetProjectId,
+        openAddTeammateModal,
+        addProjectTeammate,
+        advanceWorkflowPhase,
+        addWorkflowToProject,
+        submitRevisionForStep,
+        retryBlockedStep,
+        skipOptionalStep,
         switchWorkspace,
         sendMessage,
         toggleTakeover,
         approveRequest,
         rejectRequest,
+        requestChangesOnApproval,
         updateTask,
         updateWebsiteHeadline,
         rollbackWebsiteVersion,
@@ -1294,6 +1990,10 @@ export const OoumphProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         startWorkflowFromTemplate,
         createProject,
         updateProject,
+        startProject,
+        createProjectTask,
+        createApprovalRequest,
+        createWorkflowRun,
         updateIntegrationStatus,
         connectIntegration,
         disconnectIntegration,

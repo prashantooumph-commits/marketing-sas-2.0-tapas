@@ -17,6 +17,11 @@ import { CustomerPreferenceCenterModal } from './components/modals/customer/Cust
 import { CustomerCheckoutModal } from './components/modals/customer/CustomerCheckoutModal';
 import { GoalPlannerModal } from './components/modals/GoalPlannerModal';
 import { ProductGuideModal } from './components/modals/ProductGuideModal';
+import { EmployeeChooserModal } from './components/modals/EmployeeChooserModal';
+import { WorkflowSetupWizardModal } from './components/modals/WorkflowSetupWizardModal';
+import { AddTeammateModal } from './components/modals/AddTeammateModal';
+import { BusinessSolutionDetailModal } from './components/workflows/BusinessSolutionDetailModal';
+import { WorkflowDetailModal } from './components/workflows/WorkflowDetailModal';
 import {
   Users,
   Layers,
@@ -50,7 +55,23 @@ const AppContent: React.FC = () => {
     isCustomerPreferenceCenterOpen,
     setIsCustomerPreferenceCenterOpen,
     isCustomerCheckoutOpen,
-    setIsCustomerCheckoutOpen
+    setIsCustomerCheckoutOpen,
+    businessSolutions,
+    workflowTemplates,
+    selectedSolutionId,
+    setSelectedSolutionId,
+    isSolutionDetailOpen,
+    setIsSolutionDetailOpen,
+    selectedWorkflowTemplateId,
+    setSelectedWorkflowTemplateId,
+    isWorkflowDetailOpen,
+    setIsWorkflowDetailOpen,
+    setGoalPlannerInitialGoal,
+    setIsGoalPlannerOpen,
+    startWorkflowFromTemplate,
+    openWorkflowSetup,
+    openBusinessSolutionSetup,
+    setWorkTab
   } = useOoumph();
 
   const [isMobileMoreOpen, setIsMobileMoreOpen] = useState(false);
@@ -292,6 +313,7 @@ const AppContent: React.FC = () => {
       <DemoToolsDrawer />
       <GoalPlannerModal />
       <ProductGuideModal />
+      <EmployeeChooserModal />
 
       {/* Customer-Facing Experience Modals */}
       <CustomerBookingModal
@@ -310,6 +332,48 @@ const AppContent: React.FC = () => {
         isOpen={isCustomerCheckoutOpen}
         onClose={() => setIsCustomerCheckoutOpen(false)}
       />
+
+      {/* Business Solutions & Workflow Detail Modals */}
+      <BusinessSolutionDetailModal
+        isOpen={isSolutionDetailOpen}
+        onClose={() => setIsSolutionDetailOpen(false)}
+        solution={businessSolutions.find((s) => s.id === selectedSolutionId) || null}
+        employees={employees}
+        workflowTemplates={workflowTemplates}
+        onPlanSolution={(sol) => {
+          setGoalPlannerInitialGoal(`${sol.title} — ${sol.shortPromise}`);
+          setIsGoalPlannerOpen(true);
+        }}
+        onLaunchSolution={(solId) => {
+          openBusinessSolutionSetup(solId);
+        }}
+        onSelectWorkflow={(wfId) => {
+          setSelectedWorkflowTemplateId(wfId);
+          setIsWorkflowDetailOpen(true);
+        }}
+      />
+      <WorkflowDetailModal
+        isOpen={isWorkflowDetailOpen}
+        onClose={() => setIsWorkflowDetailOpen(false)}
+        workflow={workflowTemplates.find((w) => w.id === selectedWorkflowTemplateId) || null}
+        employees={employees}
+        allWorkflows={workflowTemplates}
+        onUseWorkflow={(wfId) => {
+          openWorkflowSetup(wfId);
+        }}
+        onPreviewSampleData={(wf) => {
+          // Keep preview smooth and focused
+        }}
+        onSelectRecommendedWorkflow={(wfId) => {
+          setSelectedWorkflowTemplateId(wfId);
+        }}
+      />
+
+      {/* Generic Workflow & Solution Setup Wizard (Phase 2B.2) */}
+      <WorkflowSetupWizardModal />
+
+      {/* Project Teammate Collaboration Modal (Phase 2B.2) */}
+      <AddTeammateModal />
     </div>
   );
 };

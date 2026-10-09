@@ -13,8 +13,11 @@ import {
   IntegrationConnection,
   TeamMember,
   ActivityEvent,
-  ScheduledMeeting
+  ScheduledMeeting,
+  BusinessSolution
 } from '../types';
+import { INITIAL_WORKFLOW_TEMPLATES } from './workflowTemplates';
+import { INITIAL_BUSINESS_SOLUTIONS } from './businessSolutions';
 
 export const INITIAL_USER_SETTINGS: UserSettings = {
   timezone: 'America/Los_Angeles (PST)',
@@ -309,91 +312,8 @@ export const INITIAL_PROJECTS: Project[] = [
   }
 ];
 
-export const INITIAL_WORKFLOW_TEMPLATES: WorkflowTemplate[] = [
-  {
-    id: 'wf-flagship-guide',
-    name: 'Flagship Comment-to-Guide Campaign',
-    outcome: 'Turn social comments into verified leads and booked discovery calls via automated PDF delivery.',
-    shortDescription: 'Multi-agent funnel combining viral post copywriting, instant keyword DM response, PDF asset verification, and sales qualification.',
-    category: 'Growth & Audience',
-    participatingEmployeeIds: ['emp-a23', 'emp-a12', 'emp-a19', 'emp-a10', 'emp-a09'],
-    approvalPoints: ['Sign off on destination account & keyword rule', 'Review outbound DM template & rate limits'],
-    typicalDuration: '3 - 7 days',
-    expectedSteps: [
-      { title: 'Draft High-Leverage Post & Hook Copy', employeeCode: 'A12', type: 'employee_task', description: 'Write engaging thought-leadership post inviting comments with specific keyword.' },
-      { title: 'Create Carousel & Quote Graphics', employeeCode: 'A19', type: 'employee_task', description: 'Design 1:1 and 9:16 high-contrast carousel slides with clear save/comment prompts.' },
-      { title: 'Configure Keyword DM Trigger & PDF Asset', employeeCode: 'A23', type: 'employee_task', description: 'Verify downloadable 24-page PDF and link direct message delivery template.' },
-      { title: 'Founder Review of Campaign Parameters', employeeCode: 'A01', type: 'human_approval', description: 'Confirm accounts, message rate boundaries, and separate marketing consent notice.' },
-      { title: 'Multi-Touch Nurture Drip Configuration', employeeCode: 'A10', type: 'employee_task', description: 'Prepare 3-part follow-up email sequence for readers who request deeper audit.' },
-      { title: 'Pipeline Qualification & Deal Sync', employeeCode: 'A09', type: 'employee_task', description: 'Route qualified leads directly to discovery pipeline and allocate calendar slots.' }
-    ]
-  },
-  {
-    id: 'wf-inbound-booking',
-    name: 'Inbound Lead Qualification & Meeting Booking',
-    outcome: 'Sub-60-second speed-to-lead response, automatic ICP triage, calendar slot reservation, and CRM sync.',
-    shortDescription: 'Coordinates virtual receptionist, website form listener, inbound sales qualification, and calendar defense.',
-    category: 'Sales Operations',
-    participatingEmployeeIds: ['emp-a17', 'emp-a05', 'emp-a09', 'emp-a01'],
-    approvalPoints: ['Meeting reschedule buffer authorization'],
-    typicalDuration: 'Continuous Real-time',
-    expectedSteps: [
-      { title: 'Inbound Inquiries Speed-to-Lead Triage', employeeCode: 'A17', type: 'employee_task', description: 'Acknowledge website form submits and phone calls in under 60 seconds.' },
-      { title: 'Virtual Receptionist Voicemail & Call Routing', employeeCode: 'A05', type: 'employee_task', description: 'Transcribe voicemails, extract caller intent, and categorize urgency.' },
-      { title: 'Calendar Defense & Slot Reservation', employeeCode: 'A01', type: 'employee_task', description: 'Offer optimal 20-min strategy review slots with 15-min focus buffers.' },
-      { title: 'Deal Creation & Discovery Qualification', employeeCode: 'A09', type: 'employee_task', description: 'Create deal record in pipeline, assign deal size, and prepare discovery brief.' }
-    ]
-  },
-  {
-    id: 'wf-outbound-prospecting',
-    name: 'Outbound Cold Prospecting to Meeting',
-    outcome: 'Enrich verified ICP contacts, validate sender reputation, and execute personalized multi-step sequence.',
-    shortDescription: 'Combines prospect research, CSV deduplication, personalized copywriting, and domain health checks.',
-    category: 'Sales Operations',
-    participatingEmployeeIds: ['emp-a04', 'emp-a16', 'emp-a29', 'emp-a09'],
-    approvalPoints: ['Sign off on recipient batch & sender domain check', 'Review Step 1 email subject lines'],
-    typicalDuration: '10 - 14 days',
-    expectedSteps: [
-      { title: 'ICP Prospect Research & Contact Enrichment', employeeCode: 'A04', type: 'employee_task', description: 'Filter target accounts by industry, company size, and executive title.' },
-      { title: 'Contact Deduplication & Sender Health Check', employeeCode: 'A29', type: 'employee_task', description: 'Check DKIM/SPF alignment, sanitize duplicate emails, and enforce suppression lists.' },
-      { title: 'Founder Approval of Outbound Sequence', employeeCode: 'A01', type: 'human_approval', description: 'Review email batch, personalization quality, and daily dispatch rate.' },
-      { title: 'Execute 3-Touch Cold Outreach Sequence', employeeCode: 'A16', type: 'employee_task', description: 'Deliver personalized sequence with automatic opt-out suppression handling.' },
-      { title: 'Reply Triage & Meeting Booking Handoff', employeeCode: 'A09', type: 'employee_task', description: 'Classify replies (interested, referral, objection, unsubscribe) and progress pipeline.' }
-    ]
-  },
-  {
-    id: 'wf-content-distribution',
-    name: 'Weekly Content & Social Distribution',
-    outcome: 'Produce SEO long-form article, derivative social thought-leadership posts, and branded visual carousels.',
-    shortDescription: 'Editorial engine from high-level business strategy to published assets across web and social channels.',
-    category: 'Content & Creative',
-    participatingEmployeeIds: ['emp-a08', 'emp-a03', 'emp-a12', 'emp-a19', 'emp-a02'],
-    approvalPoints: ['Review long-form article draft', 'Sign off on social post scheduling'],
-    typicalDuration: 'Weekly rhythm',
-    expectedSteps: [
-      { title: 'Quarterly Strategic Theme Alignment', employeeCode: 'A08', type: 'employee_task', description: 'Select high-priority theme aligning with upcoming cohort enrollment milestones.' },
-      { title: 'SEO Keyword Research & Long-Form Draft', employeeCode: 'A03', type: 'employee_task', description: 'Write 1,800-word authoritative guide with meta descriptions and header structure.' },
-      { title: 'Derivative Headline Angles & Social Hooks', employeeCode: 'A12', type: 'employee_task', description: 'Extract 3 punchy LinkedIn angles and provocative opening hooks.' },
-      { title: 'Design Branded Quote Cards & Visuals', employeeCode: 'A19', type: 'employee_task', description: 'Produce 1:1 square graphics matching approved brand typography and colors.' },
-      { title: 'Content Calendar Scheduling & Distribution', employeeCode: 'A02', type: 'employee_task', description: 'Queue approved posts across LinkedIn, Twitter, and Instagram at optimal hours.' }
-    ]
-  },
-  {
-    id: 'wf-onboarding-retention',
-    name: 'Customer Onboarding & Retention Drip',
-    outcome: 'Seamless welcome experience for newly signed clients, milestone tracking, and proactive satisfaction checks.',
-    shortDescription: 'Ensures zero drop-off after contracts are signed through coordinated customer success and knowledge sharing.',
-    category: 'Operations & Support',
-    participatingEmployeeIds: ['emp-a30', 'emp-a10', 'emp-a11'],
-    approvalPoints: ['Approve client kickoff agenda & milestone timeline'],
-    typicalDuration: '30 days',
-    expectedSteps: [
-      { title: 'Client Onboarding Milestone Setup', employeeCode: 'A30', type: 'employee_task', description: 'Generate custom 4-week milestone checklist and kickoff orientation schedule.' },
-      { title: 'Automated Welcome & Resource Delivery Drip', employeeCode: 'A10', type: 'employee_task', description: 'Deliver welcome pack, credentials, and calendar invites via email and WhatsApp.' },
-      { title: 'Customer Support FAQ & Proactive Check-in', employeeCode: 'A11', type: 'employee_task', description: 'Monitor incoming client inquiries with grounded business FAQs and fast resolution.' }
-    ]
-  }
-];
+export { INITIAL_WORKFLOW_TEMPLATES };
+export { INITIAL_BUSINESS_SOLUTIONS };
 
 export const INITIAL_WORKFLOW_RUNS: WorkflowRun[] = [
   {
