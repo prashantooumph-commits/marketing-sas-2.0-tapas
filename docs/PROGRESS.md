@@ -48,14 +48,65 @@
 ## Checks Actually Executed
 - Build Compilation (`compile_applet`): **PASSED** (0 errors).
 - TypeScript & Linting (`lint_applet`): **PASSED** (`tsc --noEmit`, 0 warnings, 0 errors).
+- Preview Environment & Fetch Shim: **PASSED** (Configured configurable `window.fetch` accessor with setter in `index.html` preventing preview extension `frame_ant.js` getter-only mutation TypeError).
 - Navigation & View Mounting: **PASSED** (All 6 primary surfaces: Team, Work, Inbox, Sales, Business, Settings cleanly routed).
 - Mobile App Shell Responsiveness: **PASSED** (Fixed bottom bar and More drawer verified down to 375px).
 - Connective Operating System Bridges: **PASSED** (Shared projects, workflow runs, integrations, and sales deals seamlessly synchronized across store and views).
 
-## Checks NOT RUN
+## Phase 4 Execution: UX Correction & Understandable Product Journey Log
+
+### Exact Files Changed
+1. `src/components/navigation/TopBar.tsx`:
+   - Made Settings a visible desktop primary navigation destination alongside My Team, My Work, Inbox, Sales, and My Business.
+2. `src/components/views/TeamHomeView.tsx`:
+   - Reworked the first-fold section under "What do you want to get done?" into three clearly differentiated paths:
+     1. *Ask One Employee* (focused single task with direct specialist picker).
+     2. *Start a Business Goal* (multi-agent collaboration triggering Goal Planner).
+     3. *Use a Proven Workflow* (repeatable business processes linking to Workflows library).
+   - Replaced keyword-only task dispatch with a lightweight local DEMO classifier supporting `SINGLE_EMPLOYEE`, `BUSINESS_GOAL`, `WORKFLOW_INTENT`, and an ambiguous clarification prompt asking: "Would you like one employee to handle this, or should I build a team plan?".
+   - Preserved core team cards and complete 32-specialist directory below the first-fold section.
+3. `src/components/modals/GoalPlannerModal.tsx` (New Component):
+   - Created intuitive Goal Planner allowing user to specify objective, optional business context (offer, audience, geography, channels, deadline, budget), and view recommended team with editable responsibilities, reordering controls, specialist addition/removal, and "Create project" / "Save plan for later" actions.
+4. `src/components/modals/ProductGuideModal.tsx` (New Component):
+   - Added visual 9-step "How Ooumph Works" guide accessible from the Home screen header.
+5. `src/components/views/MyWorkView.tsx`:
+   - Reorganized sub-tabs into clean IA: Projects, Tasks, Workflows, Calendar, Assets, Results.
+   - Built rich Project container tabs: Overview (Goal, status, owner, team, next important action, progress summary), Workflow (interactive execution stepper with advance controls), Tasks (project tasks), Assets (shared drafts and resources), Activity (chronological collaboration history), and Results (attributed leads, deals, meetings).
+   - Structured Workflows library with categorized view (Recommended, Marketing, Sales, Operations, Customer Lifecycle, My templates) and explicit placeholder dialogs for "+ New workflow" and "+ New template" noting builder is scheduled for next phase.
+   - Surfaced contextual campaign metrics cleanly under Projects and Results.
+6. `src/store/ooumphStore.tsx`:
+   - Added Goal Planner and Product Guide modal states, project selection state (`selectedProjectId`), and updated `createProject` to return the created project ID for instant navigation.
+7. `src/types/index.ts`:
+   - Extended `Project` interface with goal parameters, employee responsibilities map, next important action, and progress summary.
+8. `src/data/seedData.ts`:
+   - Enriched seeded projects (`proj-1`, `proj-2`, `proj-3`, `proj-acme-1`) with contextual overview text, next important actions, and specialist responsibilities.
+9. `src/App.tsx`:
+   - Mounted `GoalPlannerModal` and `ProductGuideModal`.
+
+### Tests Run
+1. Desktop Navigation: Verified Settings is directly visible and clickable as a primary navigation link (My team, My work, Inbox, Sales, My business, Settings).
+2. Mobile Navigation: Verified More drawer includes My Business and Workspace Settings, without layout overflow on 390px mobile viewports.
+3. Ask One Employee: Verified clicking option or inputting single-task query ("Write an Instagram caption", "Review this NDA") routes directly to the appropriate specialist workspace.
+4. Business Goal & Goal Planner: Verified "Plan with my team" and goal input queries ("Generate 100 qualified leads for our leadership programme") trigger the Goal Planner with prefilled parameters.
+5. Project Creation: Verified "Create project" from Goal Planner persists a new Project in store, selects it, and displays it in My Work Projects view.
+6. Project Reopening: Verified switching between projects and navigating away/back maintains selected project data cleanly.
+7. Workflow Library: Verified "Browse workflows" and the Workflows tab render the 7 working templates across categories, and placeholder modals open for "+ New workflow" and "+ New template".
+8. Workflow Execution: Verified "Launch Workflow" and "Advance Step" continue advancing multi-agent stepper states.
+9. Cross-Surface Scoping: Verified existing Sales, Inbox, My Business, and individual employee workspaces function with zero regressions.
+10. Multi-Workspace Isolation: Verified switching between Cedar & Co Learning and Acme Craft Goods filters and preserves workspace-scoped projects and records.
+11. Build & Lint: Ran `compile_applet` and `lint_applet` - passed with 0 warnings, 0 errors.
+
+### Checks NOT RUN
 - External API calls (prohibited by prompt).
-- Live Gemini API calls / external models (handled via deterministic local simulations as required).
+- Live Gemini API calls / external models (handled via deterministic local simulations).
 - Production cloud database writes (persisted in browser `localStorage`).
 
-## Next Exact Task
-- Await founder review and visual experience validation of the fully connected, end-to-end interactive frontend demo.
+### Failures & Resolutions
+- Identified a typo in `MyWorkView.tsx:450` during initial build; resolved immediately and verified clean build.
+
+### Remaining Issues / Gaps
+- Workflow authoring canvas (custom drag-and-drop template designer) is currently represented as an intentional placeholder dialog as requested for this phase.
+- Connected account / integrations setup flow needs streamlined UX for first-time account authorization.
+
+## Next Phase
+- **Settings + connected account experience and shared integration context.**

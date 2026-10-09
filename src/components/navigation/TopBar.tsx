@@ -118,6 +118,17 @@ export const TopBar: React.FC = () => {
         >
           My business
         </button>
+
+        <button
+          onClick={() => navigate('settings', null)}
+          className={`transition-colors whitespace-nowrap shrink-0 py-1 ${
+            currentView === 'settings'
+              ? 'text-slate-950 font-semibold border-b-2 border-slate-900 -mb-0.5'
+              : 'hover:text-slate-950'
+          }`}
+        >
+          Settings
+        </button>
       </nav>
 
       {/* Zone 3: Primary Action & Controls */}

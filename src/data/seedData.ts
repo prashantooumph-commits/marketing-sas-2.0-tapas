@@ -209,7 +209,23 @@ export const INITIAL_PROJECTS: Project[] = [
     dueAt: '2026-11-01T00:00:00Z',
     createdAt: '2026-09-20T10:00:00Z',
     updatedAt: '2026-10-09T02:00:00Z',
-    tags: ['Go-to-Market', 'Cohort Launch', 'Revenue']
+    tags: ['Go-to-Market', 'Cohort Launch', 'Revenue'],
+    offer: 'Executive Fellowship Winter 2026 ($8,500/seat)',
+    audience: 'Mid-to-Senior Operations Directors and Founders',
+    geography: 'United States & Canada',
+    channels: ['LinkedIn Organic', 'Website Landing Page', 'Direct Inbound'],
+    approximateBudget: '$2,500',
+    nextImportantAction: 'Review and sign off on Walter’s landing page headline variation before public broadcast.',
+    progressSummary: 'Strategy defined, copy matrix drafted, and landing page staged. Speed-to-lead queue active for waitlist.',
+    employeeResponsibilities: {
+      'emp-a08': 'Define cohort curriculum structure and seat economics',
+      'emp-a12': 'Draft 3 persuasive value proposition angles for executive directors',
+      'emp-a07': 'Deploy responsive registration page with live lead capture form',
+      'emp-a19': 'Produce brand-calibrated visual quote slides and curriculum cards',
+      'emp-a02': 'Queue organic LinkedIn thought leadership series',
+      'emp-a17': 'Triage inbound applications and schedule discovery interviews',
+      'emp-a09': 'Track fellowship deal pipeline stages through Closed Won'
+    }
   },
   {
     id: 'proj-2',
@@ -222,7 +238,21 @@ export const INITIAL_PROJECTS: Project[] = [
     dueAt: '2026-10-25T00:00:00Z',
     createdAt: '2026-10-01T08:30:00Z',
     updatedAt: '2026-10-09T03:15:00Z',
-    tags: ['Audience Growth', 'Flagship Funnel', 'Inbound']
+    tags: ['Audience Growth', 'Flagship Funnel', 'Inbound'],
+    offer: 'Free 24-Page Tactical Executive Operating Guide (PDF)',
+    audience: 'B2B Business Operators and Agency Leaders',
+    geography: 'Global English-speaking markets',
+    channels: ['Instagram Professional', 'LinkedIn Company Page'],
+    approximateBudget: '$0 (Organic Social)',
+    nextImportantAction: 'Approve new batch of 18 delivered PDF guides in Astrid’s audience queue.',
+    progressSummary: 'Keyword trigger "GROW" active. 142 comments processed, 118 guides delivered, 38 permissioned leads captured.',
+    employeeResponsibilities: {
+      'emp-a02': 'Publish weekly hook post inviting followers to comment "GROW"',
+      'emp-a23': 'Monitor keyword comments and deliver PDF direct messages',
+      'emp-a21': 'Post polite public replies confirming DM delivery',
+      'emp-a29': 'Deduplicate lead emails and check domain health',
+      'emp-a17': 'Follow up with commenters who answered qualification questions'
+    }
   },
   {
     id: 'proj-3',
@@ -234,7 +264,20 @@ export const INITIAL_PROJECTS: Project[] = [
     dueAt: '2026-11-15T00:00:00Z',
     createdAt: '2026-10-05T14:00:00Z',
     updatedAt: '2026-10-08T16:00:00Z',
-    tags: ['Outbound Sales', 'Corporate B2B']
+    tags: ['Outbound Sales', 'Corporate B2B'],
+    offer: 'Corporate Group Training Package (5+ seats)',
+    audience: 'VP of Operations and Chief People Officers at 50–200 person firms',
+    geography: 'California, US',
+    channels: ['Direct B2B Email Sequence'],
+    approximateBudget: '$400',
+    nextImportantAction: 'Import enriched CSV file from Stan Bradley into campaign queue.',
+    progressSummary: 'ICP parameters locked. Awaiting initial contact list import and domain health verification.',
+    employeeResponsibilities: {
+      'emp-a04': 'Filter ICP contacts and enrich verified email addresses',
+      'emp-a29': 'Verify SPF/DKIM records and suppress previous opt-outs',
+      'emp-a16': 'Compose personalized 3-touch cadence with value-first hook',
+      'emp-a09': 'Coach pipeline stages and log booked discovery meetings'
+    }
   },
 
   // ACME CRAFT GOODS PROJECTS
@@ -248,7 +291,21 @@ export const INITIAL_PROJECTS: Project[] = [
     dueAt: '2026-11-20T00:00:00Z',
     createdAt: '2026-10-01T09:00:00Z',
     updatedAt: '2026-10-08T14:00:00Z',
-    tags: ['Product Release', 'Heritage Leather']
+    tags: ['Product Release', 'Heritage Leather'],
+    offer: 'Weekender Duffel Bag in Saddle Brown ($480)',
+    audience: 'Design-conscious travelers and gift buyers',
+    geography: 'United States',
+    channels: ['Instagram', 'Email Newsletter'],
+    approximateBudget: '$1,200',
+    nextImportantAction: 'Review Caleb’s inventory allocation of 50 serialized bags.',
+    progressSummary: 'Lookbook assets approved. Pre-order catalog listing staged.',
+    employeeResponsibilities: {
+      'emp-a08': 'Formulate holiday release timeline and early access tier',
+      'emp-a12': 'Craft product storytelling focused on vegetable-tanning process',
+      'emp-a19': 'Design Instagram carousel lookbook slides',
+      'emp-a02': 'Schedule launch countdown teasers',
+      'emp-a32': 'Manage serialized inventory seats and recover abandoned carts'
+    }
   }
 ];
 

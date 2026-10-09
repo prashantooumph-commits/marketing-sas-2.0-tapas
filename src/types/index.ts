@@ -190,6 +190,14 @@ export interface Deal {
 
 export type ProjectStatus = 'planning' | 'in_progress' | 'needs_review' | 'completed' | 'paused';
 
+export interface ProjectStage {
+  id: string;
+  name: string;
+  ownerEmployeeCode: string;
+  status: 'completed' | 'in_progress' | 'pending';
+  description?: string;
+}
+
 export interface Project {
   id: string;
   workspaceId: string;
@@ -203,6 +211,16 @@ export interface Project {
   createdAt: string;
   updatedAt: string;
   tags?: string[];
+  // Goal Planner & Project Overview extensions:
+  offer?: string;
+  audience?: string;
+  geography?: string;
+  channels?: string[];
+  approximateBudget?: string;
+  employeeResponsibilities?: Record<string, string>; // employeeId -> responsibility description
+  nextImportantAction?: string;
+  progressSummary?: string;
+  stages?: ProjectStage[];
 }
 
 export type WorkflowStepType = 'employee_task' | 'human_approval' | 'condition' | 'wait_schedule' | 'handoff';

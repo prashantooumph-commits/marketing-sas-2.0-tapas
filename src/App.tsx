@@ -15,6 +15,8 @@ import { CustomerBookingModal } from './components/modals/customer/CustomerBooki
 import { CustomerProposalModal } from './components/modals/customer/CustomerProposalModal';
 import { CustomerPreferenceCenterModal } from './components/modals/customer/CustomerPreferenceCenterModal';
 import { CustomerCheckoutModal } from './components/modals/customer/CustomerCheckoutModal';
+import { GoalPlannerModal } from './components/modals/GoalPlannerModal';
+import { ProductGuideModal } from './components/modals/ProductGuideModal';
 import {
   Users,
   Layers,
@@ -288,6 +290,8 @@ const AppContent: React.FC = () => {
       <FlagshipGuideSimulatorModal />
       <OnboardingModal />
       <DemoToolsDrawer />
+      <GoalPlannerModal />
+      <ProductGuideModal />
 
       {/* Customer-Facing Experience Modals */}
       <CustomerBookingModal

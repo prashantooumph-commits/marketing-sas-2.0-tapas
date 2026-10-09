@@ -45,7 +45,7 @@ interface OoumphContextType {
   // Navigation & View State
   currentView: AppView;
   selectedEmployeeId: string | null;
-  workTab: 'projects' | 'workflows' | 'tasks' | 'calendar' | 'campaigns' | 'assets' | 'results';
+  workTab: 'projects' | 'tasks' | 'workflows' | 'calendar' | 'assets' | 'results' | 'campaigns';
   inboxTab: 'conversations' | 'questions' | 'approvals';
   isDemoToolsOpen: boolean;
   isFlagshipSimulatorOpen: boolean;
@@ -54,6 +54,10 @@ interface OoumphContextType {
   isCustomerProposalOpen: boolean;
   isCustomerPreferenceCenterOpen: boolean;
   isCustomerCheckoutOpen: boolean;
+  isGoalPlannerOpen: boolean;
+  isProductGuideOpen: boolean;
+  goalPlannerInitialGoal: string;
+  selectedProjectId: string;
   demoMode: 'seeded' | 'fresh';
 
   // Domain Entities
@@ -80,7 +84,7 @@ interface OoumphContextType {
   // Actions
   navigate: (view: AppView, employeeId?: string | null) => void;
   selectEmployee: (employeeId: string | null) => void;
-  setWorkTab: (tab: 'projects' | 'workflows' | 'tasks' | 'calendar' | 'campaigns' | 'assets' | 'results') => void;
+  setWorkTab: (tab: 'projects' | 'tasks' | 'workflows' | 'calendar' | 'assets' | 'results' | 'campaigns') => void;
   setInboxTab: (tab: 'conversations' | 'questions' | 'approvals') => void;
   setIsDemoToolsOpen: (open: boolean) => void;
   setIsFlagshipSimulatorOpen: (open: boolean) => void;
@@ -89,6 +93,10 @@ interface OoumphContextType {
   setIsCustomerProposalOpen: (open: boolean) => void;
   setIsCustomerPreferenceCenterOpen: (open: boolean) => void;
   setIsCustomerCheckoutOpen: (open: boolean) => void;
+  setIsGoalPlannerOpen: (open: boolean) => void;
+  setIsProductGuideOpen: (open: boolean) => void;
+  setGoalPlannerInitialGoal: (goal: string) => void;
+  setSelectedProjectId: (id: string) => void;
   switchWorkspace: (workspaceId: string) => void;
 
   // Business Handlers
@@ -155,7 +163,7 @@ export const OoumphProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   // Navigation state
   const [currentView, setCurrentView] = useState<AppView>('team');
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<string | null>(null);
-  const [workTab, setWorkTab] = useState<'projects' | 'workflows' | 'tasks' | 'calendar' | 'campaigns' | 'assets' | 'results'>('projects');
+  const [workTab, setWorkTab] = useState<'projects' | 'tasks' | 'workflows' | 'calendar' | 'assets' | 'results' | 'campaigns'>('projects');
   const [inboxTab, setInboxTab] = useState<'conversations' | 'questions' | 'approvals'>('approvals');
   const [isDemoToolsOpen, setIsDemoToolsOpen] = useState(false);
   const [isFlagshipSimulatorOpen, setIsFlagshipSimulatorOpen] = useState(false);
@@ -164,6 +172,10 @@ export const OoumphProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [isCustomerProposalOpen, setIsCustomerProposalOpen] = useState(false);
   const [isCustomerPreferenceCenterOpen, setIsCustomerPreferenceCenterOpen] = useState(false);
   const [isCustomerCheckoutOpen, setIsCustomerCheckoutOpen] = useState(false);
+  const [isGoalPlannerOpen, setIsGoalPlannerOpen] = useState(false);
+  const [isProductGuideOpen, setIsProductGuideOpen] = useState(false);
+  const [goalPlannerInitialGoal, setGoalPlannerInitialGoal] = useState('');
+  const [selectedProjectId, setSelectedProjectId] = useState<string>('proj-1');
   const [demoMode, setDemoModeState] = useState<'seeded' | 'fresh'>('seeded');
 
   // Business state
@@ -988,15 +1000,18 @@ export const OoumphProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     return newRunId;
   };
 
-  const createProject = (projectData: Omit<Project, 'id' | 'createdAt' | 'updatedAt'>) => {
+  const createProject = (projectData: Omit<Project, 'id' | 'createdAt' | 'updatedAt'>): string => {
+    const newProjectId = `proj-${Date.now()}`;
     const newProject: Project = {
       ...projectData,
-      id: `proj-${Date.now()}`,
+      id: newProjectId,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     };
     setProjects((prev) => [newProject, ...prev]);
+    setSelectedProjectId(newProjectId);
     logEvent('Initiative Lead', 'Project Created', `Objective established: "${newProject.title}"`, 'success');
+    return newProjectId;
   };
 
   const updateProject = (projectId: string, partial: Partial<Project>) => {
@@ -1212,6 +1227,10 @@ export const OoumphProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         isCustomerProposalOpen,
         isCustomerPreferenceCenterOpen,
         isCustomerCheckoutOpen,
+        isGoalPlannerOpen,
+        isProductGuideOpen,
+        goalPlannerInitialGoal,
+        selectedProjectId,
         demoMode,
         activeWorkspace,
         allWorkspaces,
@@ -1243,6 +1262,10 @@ export const OoumphProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         setIsCustomerProposalOpen,
         setIsCustomerPreferenceCenterOpen,
         setIsCustomerCheckoutOpen,
+        setIsGoalPlannerOpen,
+        setIsProductGuideOpen,
+        setGoalPlannerInitialGoal,
+        setSelectedProjectId,
         switchWorkspace,
         sendMessage,
         toggleTakeover,
