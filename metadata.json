@@ -1,0 +1,7 @@
+{
+  "name": "Ooumph - AI Employees for Business Owners",
+  "description": "Employee-first agentic business platform for nontechnical business owners with dedicated AI employees, shared knowledge, coordinated campaigns, and sales operations.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
+
