@@ -172,5 +172,120 @@ export const INITIAL_PERSONAL_TEMPLATES: WorkflowTemplate[] = [
         requiredConnections: ['google_workspace']
       }
     ]
+  },
+  {
+    id: 'tmpl-pers-02',
+    code: 'CUSTOM-02',
+    name: 'Small-Batch Handcrafted Goods Drop',
+    title: 'Small-Batch Handcrafted Goods Drop',
+    outcome: 'Coordinate product lookbook teaser, customer VIP alert, and stockist wholesale announcement.',
+    outcomeCategory: 'Drive store traffic & sales',
+    shortDescription: 'Multi-specialist announcement cycle for limited workshop releases.',
+    description: 'Autonomous release cycle for limited artisanal inventory. Coordinates product photography teasers, email broadcast to VIP collectors, and wholesale reorder check with human signoff.',
+    category: 'Commerce & Support',
+    bestFor: 'Artisanal brands and DTC workshops releasing numbered production runs.',
+    participatingEmployeeIds: ['emp-a12', 'emp-a19', 'emp-a10', 'emp-a32'],
+    employeeIds: ['emp-a12', 'emp-a19', 'emp-a10', 'emp-a32'],
+    expectedSteps: [
+      {
+        title: 'Lookbook & Material Copywriting',
+        employeeCode: 'A12',
+        type: 'employee_task',
+        description: 'Draft evocative story focusing on Tuscan vegetable-tanned leather and brass rivets.'
+      },
+      {
+        title: 'Visual Asset Crop & Story Graphics',
+        employeeCode: 'A19',
+        type: 'employee_task',
+        description: 'Generate 9:16 vertical stories and 1:1 lookbook carousel graphics.'
+      },
+      {
+        title: 'Founder Signoff on Batch Pricing & Allocations',
+        employeeCode: 'A01',
+        type: 'human_approval',
+        description: 'Review final batch pricing and retail stockist reservation split.'
+      },
+      {
+        title: 'VIP Email & Social Broadcast',
+        employeeCode: 'A10',
+        type: 'employee_task',
+        description: 'Send early-access alert to 500 VIP collectors.'
+      }
+    ],
+    approvalPoints: ['Founder Signoff on Batch Pricing & Allocations'],
+    approvalGates: ['Founder Signoff on Batch Pricing & Allocations'],
+    typicalDuration: '3-5 days',
+    requiredConnectionTypes: ['instagram_pro'],
+    optionalConnectionTypes: ['stripe_billing'],
+    inputs: ['Batch unit count (50)', 'Material specifications', 'Drop date'],
+    outputs: ['Lookbook Story Set', 'VIP Email Broadcast', 'Shop Catalog Update'],
+    successMetrics: [
+      'VIP Open Rate: Target >60%',
+      'First 24h Sell-Through: Target >75%'
+    ],
+    tags: ['Custom', 'Drop', 'Ecommerce', 'Artisanal'],
+    featured: true,
+    complexity: 'simple',
+    templateSource: 'personal',
+    status: 'active',
+    version: 1,
+    createdAt: new Date(Date.now() - 5 * 86400000).toISOString(),
+    updatedAt: new Date(Date.now() - 1 * 86400000).toISOString(),
+    createdBy: 'Artisan Workshop Owner',
+    editable: true,
+    workspaceId: 'ws-acme',
+    trigger: {
+      type: 'MANUAL',
+      label: 'Manual Release Launch',
+      description: 'Triggered manually by founder when production batch is numbered and inspected.'
+    },
+    richSteps: [
+      {
+        id: 'step-acme-1',
+        title: 'Lookbook & Material Copywriting',
+        type: 'employee_task',
+        employeeCode: 'A12',
+        employeeId: 'emp-a12',
+        description: 'Draft evocative story focusing on Tuscan vegetable-tanned leather and brass rivets.',
+        expectedOutput: 'Product description and 3 social teaser captions.',
+        impactCategory: 'internal_work'
+      },
+      {
+        id: 'step-acme-2',
+        title: 'Visual Asset Crop & Story Graphics',
+        type: 'employee_task',
+        employeeCode: 'A19',
+        employeeId: 'emp-a19',
+        description: 'Generate 9:16 vertical stories and 1:1 lookbook carousel graphics.',
+        expectedOutput: 'Lookbook carousel pack and announcement teaser asset.',
+        impactCategory: 'internal_work'
+      },
+      {
+        id: 'step-acme-3',
+        title: 'Founder Signoff on Batch Pricing & Allocations',
+        type: 'human_approval',
+        description: 'Review final batch pricing and retail stockist reservation split.',
+        impactCategory: 'commercial_commitment',
+        approvalConfig: {
+          approverRole: 'Workshop Founder',
+          approverName: 'Workspace Owner',
+          subjectToApprove: 'Drop pricing tier and stock allocation per merchant.',
+          riskCategory: 'Commercial Pricing',
+          onApproveAction: 'Proceed to VIP collector broadcast.',
+          onRequestChangesAction: 'Adjust price point or wholesale ratio.'
+        }
+      },
+      {
+        id: 'step-acme-4',
+        title: 'VIP Email & Social Broadcast',
+        type: 'employee_task',
+        employeeCode: 'A10',
+        employeeId: 'emp-a10',
+        description: 'Send early-access alert to 500 VIP collectors.',
+        expectedOutput: 'Dispatched VIP sequence with unique checkout links.',
+        impactCategory: 'outbound_messaging',
+        requiredConnections: ['instagram_pro']
+      }
+    ]
   }
 ];

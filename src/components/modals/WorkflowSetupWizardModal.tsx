@@ -65,6 +65,7 @@ export const WorkflowSetupWizardModal: React.FC = () => {
     employees,
     teamMembers,
     integrationConnections,
+    activeWorkspace,
     createProject,
     createWorkflowRun,
     createProjectTask,
@@ -479,15 +480,25 @@ export const WorkflowSetupWizardModal: React.FC = () => {
     );
 
     // Compute steps for workflow run
-    const runSteps: WorkflowStep[] = (primaryTemplate?.expectedSteps || []).map((s, idx) => ({
-      id: `step-${newRunId}-${idx + 1}`,
-      title: s.title,
-      type: s.type,
-      employeeCode: s.employeeCode,
-      employeeId: employees.find((e) => e.code === s.employeeCode)?.id,
-      description: s.description,
-      status: 'pending'
-    }));
+    const runSteps: WorkflowStep[] = (primaryTemplate?.expectedSteps || []).map((s, idx) => {
+      const rich = primaryTemplate?.richSteps?.[idx];
+      return {
+        id: `step-${newRunId}-${idx + 1}`,
+        title: s.title,
+        type: s.type,
+        employeeCode: s.employeeCode,
+        employeeId: employees.find((e) => e.code === s.employeeCode)?.id,
+        description: s.description,
+        status: 'pending',
+        humanAssigneeName: rich?.humanAssigneeName,
+        humanAssigneeRole: rich?.humanAssigneeRole,
+        conditionConfig: rich?.conditionConfig,
+        waitConfig: rich?.waitConfig,
+        handoffConfig: rich?.handoffConfig,
+        approvalConfig: rich?.approvalConfig,
+        impactCategory: rich?.impactCategory
+      };
+    });
 
     // Check for connection blockers on stage 1
     const connectionBlockerTypes = requiredConnectionTypes.filter(
@@ -496,7 +507,7 @@ export const WorkflowSetupWizardModal: React.FC = () => {
 
     // Build project object
     const newProject = {
-      workspaceId: 'ws-cedar',
+      workspaceId: activeWorkspace.id,
       title: initiativeName.trim() || `${primaryTemplate?.name || 'New'} Initiative`,
       objective: goalObjective.trim() || primaryTemplate?.outcome || 'Execute business workflow',
       status: status, // 'ready' for Ready to Start, 'planning' for Draft
@@ -559,7 +570,7 @@ export const WorkflowSetupWizardModal: React.FC = () => {
 
     // Create the workflow run
     createWorkflowRun({
-      workspaceId: 'ws-cedar',
+      workspaceId: activeWorkspace.id,
       templateId: primaryTemplate?.id || 'wf-01',
       templateName: primaryTemplate?.name || 'Initiative',
       title: `${initiativeName} Run`,
@@ -577,7 +588,7 @@ export const WorkflowSetupWizardModal: React.FC = () => {
     const firstEmp = configuredAiTeam[0];
     if (firstEmp) {
       createProjectTask({
-        workspaceId: 'ws-cedar',
+        workspaceId: activeWorkspace.id,
         projectId: newProjectId,
         workflowRunId: newRunId,
         workflowStepId: runSteps[0]?.id,

@@ -338,15 +338,16 @@ export interface WorkflowHandoffConfig {
   toEmployeeCode: string;
   contextArtifacts: string[];
   handoffNote?: string;
+  expectedNextResponsibility?: string;
 }
 
 export interface WorkflowApprovalConfig {
   approverRole: string;
   approverName?: string;
   subjectToApprove: string;
-  riskCategory: string;
-  onApproveAction: string;
-  onRequestChangesAction: string;
+  riskCategory?: string;
+  onApproveAction?: string;
+  onRequestChangesAction?: string;
 }
 
 export interface CustomWorkflowStepConfig {
@@ -407,6 +408,13 @@ export interface WorkflowStep {
   blockedReason?: string;
   requiredConnection?: IntegrationProvider;
   revisionFeedback?: string;
+  humanAssigneeName?: string;
+  humanAssigneeRole?: string;
+  conditionConfig?: WorkflowConditionConfig;
+  waitConfig?: WorkflowWaitConfig;
+  handoffConfig?: WorkflowHandoffConfig;
+  approvalConfig?: WorkflowApprovalConfig;
+  impactCategory?: StepImpactCategory;
 }
 
 export interface BusinessSolution {
@@ -501,6 +509,17 @@ export type IntegrationProvider =
   | 'voice_twilio'
   | 'stripe_billing';
 
+export interface IntegrationApiLog {
+  id: string;
+  timestamp: string;
+  method: 'GET' | 'POST' | 'PUT' | 'DELETE' | 'WEBHOOK';
+  endpoint: string;
+  statusCode: number;
+  callerEmployeeCode?: string;
+  callerName?: string;
+  summary: string;
+}
+
 export interface IntegrationConnection {
   id: string;
   workspaceId: string;
@@ -514,6 +533,10 @@ export interface IntegrationConnection {
   connectedAt?: string;
   permissionIssues?: string[];
   parentConnectionId?: string; // e.g. Meta Business -> Page -> Instagram
+  pingLatencyMs?: number;
+  apiQuotaPercent?: number;
+  tokenExpiresInDays?: number;
+  auditLogs?: IntegrationApiLog[];
 }
 
 export type WorkspaceRole = 'owner' | 'admin' | 'operator' | 'approver' | 'client_reviewer' | 'member' | 'client_viewer';

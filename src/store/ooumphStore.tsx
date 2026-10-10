@@ -22,6 +22,8 @@ import {
   BusinessSolution,
   ProjectAsset,
   WorkflowStep,
+  WorkflowStepType,
+  CustomWorkflowStepConfig,
   ProjectStage,
   ProjectCollaborator,
   ProjectCollaboratorRole,
@@ -47,6 +49,7 @@ import {
   INITIAL_ACTIVITY_EVENTS,
   INITIAL_SCHEDULED_MEETINGS
 } from '../data/seedData';
+import { INITIAL_PERSONAL_TEMPLATES } from '../data/personalTemplates';
 
 interface OoumphContextType {
   // Navigation & View State
@@ -179,6 +182,20 @@ interface OoumphContextType {
   createProjectTask: (taskData: Omit<Task, 'id' | 'createdAt' | 'version'>) => string;
   createApprovalRequest: (requestData: Omit<ApprovalRequest, 'id' | 'createdAt'>) => string;
   createWorkflowRun: (runData: Omit<WorkflowRun, 'id'>) => string;
+  isWorkflowBuilderOpen: boolean;
+  setIsWorkflowBuilderOpen: (open: boolean) => void;
+  workflowBuilderEditingTemplate: WorkflowTemplate | null;
+  setWorkflowBuilderEditingTemplate: (template: WorkflowTemplate | null) => void;
+  workflowBuilderInitialIntent: string | null;
+  setWorkflowBuilderInitialIntent: (intent: string | null) => void;
+  openWorkflowBuilder: (template?: WorkflowTemplate | null, initialIntentCode?: string) => void;
+  createCustomWorkflowTemplate: (templateData: Omit<WorkflowTemplate, 'id' | 'createdAt' | 'updatedAt'>) => string;
+  updateCustomWorkflowTemplate: (templateId: string, updates: Partial<WorkflowTemplate>) => void;
+  duplicateWorkflowTemplate: (templateId: string) => string;
+  archiveWorkflowTemplate: (templateId: string) => void;
+  restoreWorkflowTemplate: (templateId: string) => void;
+  deleteCustomWorkflowTemplate: (templateId: string) => void;
+  saveProjectAsWorkflowTemplate: (projectId: string, customName?: string) => string;
 
   // Integrations & Settings Handlers
   updateIntegrationStatus: (connectionId: string, status: IntegrationConnection['status'], permissionIssues?: string[]) => void;
@@ -190,6 +207,16 @@ interface OoumphContextType {
   updateActionRule: (ruleId: string, requiresApproval: boolean) => void;
   updateEmployeeAutonomyOverride: (employeeId: string, mode: 'default' | 'strict' | 'autonomous') => void;
   updateWorkspaceDetails: (details: Partial<Workspace>) => void;
+  isIntegrationConnectModalOpen: boolean;
+  setIsIntegrationConnectModalOpen: (open: boolean) => void;
+  connectingProvider: IntegrationProvider | null;
+  setConnectingProvider: (provider: IntegrationProvider | null) => void;
+  isIntegrationDetailOpen: boolean;
+  setIsIntegrationDetailOpen: (open: boolean) => void;
+  selectedIntegrationDetailId: string | null;
+  setSelectedIntegrationDetailId: (id: string | null) => void;
+  openConnectIntegration: (provider?: IntegrationProvider) => void;
+  openIntegrationDetail: (connectionId: string) => void;
 
   // Sales Surface Handlers
   createDeal: (dealData: Omit<Deal, 'id' | 'createdAt' | 'legalReviewSigned' | 'mockCustomerApproved'>) => void;
@@ -247,7 +274,17 @@ export const OoumphProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [settings, setSettings] = useState<UserSettings>(INITIAL_USER_SETTINGS);
   const [projects, setProjects] = useState<Project[]>(INITIAL_PROJECTS);
   const [workflowRuns, setWorkflowRuns] = useState<WorkflowRun[]>(INITIAL_WORKFLOW_RUNS);
-  const [workflowTemplates] = useState<WorkflowTemplate[]>(INITIAL_WORKFLOW_TEMPLATES);
+  const [workflowTemplates, setWorkflowTemplates] = useState<WorkflowTemplate[]>([
+    ...INITIAL_WORKFLOW_TEMPLATES,
+    ...INITIAL_PERSONAL_TEMPLATES
+  ]);
+  const [isWorkflowBuilderOpen, setIsWorkflowBuilderOpen] = useState(false);
+  const [workflowBuilderEditingTemplate, setWorkflowBuilderEditingTemplate] = useState<WorkflowTemplate | null>(null);
+  const [workflowBuilderInitialIntent, setWorkflowBuilderInitialIntent] = useState<string | null>(null);
+  const [isIntegrationConnectModalOpen, setIsIntegrationConnectModalOpen] = useState(false);
+  const [connectingProvider, setConnectingProvider] = useState<IntegrationProvider | null>(null);
+  const [isIntegrationDetailOpen, setIsIntegrationDetailOpen] = useState(false);
+  const [selectedIntegrationDetailId, setSelectedIntegrationDetailId] = useState<string | null>(null);
   const [businessSolutions] = useState<BusinessSolution[]>(INITIAL_BUSINESS_SOLUTIONS);
   const [integrationConnections, setIntegrationConnections] = useState<IntegrationConnection[]>(INITIAL_INTEGRATION_CONNECTIONS);
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>(INITIAL_TEAM_MEMBERS);
@@ -289,6 +326,12 @@ export const OoumphProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         if (parsed.teamMembers) setTeamMembers(parsed.teamMembers);
         if (parsed.activityEvents) setActivityEvents(parsed.activityEvents);
         if (parsed.scheduledMeetings) setScheduledMeetings(parsed.scheduledMeetings);
+        if (parsed.personalTemplates && Array.isArray(parsed.personalTemplates)) {
+          setWorkflowTemplates([
+            ...INITIAL_WORKFLOW_TEMPLATES,
+            ...parsed.personalTemplates
+          ]);
+        }
       }
     } catch {
       // Use initial state fallback
@@ -317,7 +360,8 @@ export const OoumphProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         integrationConnections,
         teamMembers,
         activityEvents,
-        scheduledMeetings
+        scheduledMeetings,
+        personalTemplates: workflowTemplates.filter((t) => t.templateSource === 'personal')
       };
       localStorage.setItem(STORAGE_KEY, JSON.stringify(stateToSave));
     } catch {
@@ -342,7 +386,8 @@ export const OoumphProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     integrationConnections,
     teamMembers,
     activityEvents,
-    scheduledMeetings
+    scheduledMeetings,
+    workflowTemplates
   ]);
 
   const activeWorkspace = allWorkspaces.find((w) => w.id === activeWorkspaceId) || allWorkspaces[0];
@@ -1718,7 +1763,22 @@ export const OoumphProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       capabilities: params.capabilities || ['Read Data', 'Publish Content', 'Webhooks'],
       connectedAt: new Date().toISOString(),
       lastSyncAt: new Date().toISOString(),
-      parentConnectionId: params.parentConnectionId
+      parentConnectionId: params.parentConnectionId,
+      pingLatencyMs: Math.floor(Math.random() * 25) + 20,
+      apiQuotaPercent: 95,
+      tokenExpiresInDays: 60,
+      auditLogs: [
+        {
+          id: `log-init-${Date.now()}`,
+          timestamp: new Date().toISOString(),
+          method: 'GET',
+          endpoint: '/v1/handshake',
+          statusCode: 200,
+          callerEmployeeCode: 'A01',
+          callerName: 'System Manager',
+          summary: `OAuth token authorized and permission verified for ${params.accountName}.`
+        }
+      ]
     };
 
     setIntegrationConnections((prev) => {
@@ -1727,6 +1787,232 @@ export const OoumphProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     });
 
     logEvent('Integration Manager', 'Channel Connected', `Successfully connected ${params.accountName} (${params.provider}).`, 'success');
+  };
+
+  const openConnectIntegration = (provider?: IntegrationProvider) => {
+    setConnectingProvider(provider || null);
+    setIsIntegrationConnectModalOpen(true);
+  };
+
+  const openIntegrationDetail = (connectionId: string) => {
+    setSelectedIntegrationDetailId(connectionId);
+    setIsIntegrationDetailOpen(true);
+  };
+
+  const openWorkflowBuilder = (template?: WorkflowTemplate | null, initialIntentCode?: string) => {
+    setWorkflowBuilderEditingTemplate(template || null);
+    setWorkflowBuilderInitialIntent(initialIntentCode || null);
+    setIsWorkflowBuilderOpen(true);
+  };
+
+  const createCustomWorkflowTemplate = (
+    templateData: Omit<WorkflowTemplate, 'id' | 'createdAt' | 'updatedAt'>
+  ): string => {
+    const newId = `tmpl-custom-${Date.now()}`;
+    const personalCount = workflowTemplates.filter((t) => t.templateSource === 'personal').length;
+    const newTemplate: WorkflowTemplate = {
+      ...templateData,
+      id: newId,
+      code: `CUSTOM-${personalCount + 1}`,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      templateSource: 'personal',
+      status: 'active',
+      version: 1,
+      editable: true,
+      workspaceId: activeWorkspaceId
+    };
+
+    setWorkflowTemplates((prev) => [newTemplate, ...prev]);
+    logEvent(
+      'Business Owner',
+      'Custom Workflow Created',
+      `Authored custom workflow "${newTemplate.name}" with ${newTemplate.expectedSteps?.length || 0} stages.`,
+      'success'
+    );
+    return newId;
+  };
+
+  const updateCustomWorkflowTemplate = (
+    templateId: string,
+    updates: Partial<WorkflowTemplate>
+  ) => {
+    setWorkflowTemplates((prev) =>
+      prev.map((t) => {
+        if (t.id !== templateId) return t;
+        const newVersion = (t.version || 1) + 1;
+        return {
+          ...t,
+          ...updates,
+          version: newVersion,
+          updatedAt: new Date().toISOString()
+        };
+      })
+    );
+    logEvent(
+      'Business Owner',
+      'Workflow Template Updated',
+      `Updated template "${updates.name || 'Template'}". Changes apply to future runs. Existing Projects are unchanged.`,
+      'info'
+    );
+  };
+
+  const duplicateWorkflowTemplate = (templateId: string): string => {
+    const original = workflowTemplates.find((t) => t.id === templateId);
+    if (!original) return '';
+    const newId = `tmpl-custom-${Date.now()}`;
+    const personalCount = workflowTemplates.filter((t) => t.templateSource === 'personal').length;
+    const copyName = `${original.name} — Copy`;
+    const newTemplate: WorkflowTemplate = {
+      ...original,
+      id: newId,
+      code: `CUSTOM-${personalCount + 1}`,
+      name: copyName,
+      title: copyName,
+      templateSource: 'personal',
+      status: 'active',
+      version: 1,
+      editable: true,
+      workspaceId: activeWorkspaceId,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+
+    setWorkflowTemplates((prev) => [newTemplate, ...prev]);
+    logEvent(
+      'Business Owner',
+      'Workflow Template Duplicated',
+      `Created personal template copy "${copyName}". Original remains unchanged.`,
+      'info'
+    );
+    // Requirement 13: Open the new copy in Workflow Builder. Never mutate the original.
+    openWorkflowBuilder(newTemplate);
+    return newId;
+  };
+
+  const archiveWorkflowTemplate = (templateId: string) => {
+    setWorkflowTemplates((prev) =>
+      prev.map((t) => (t.id === templateId ? { ...t, status: 'archived', updatedAt: new Date().toISOString() } : t))
+    );
+    logEvent('Business Owner', 'Template Archived', `Archived template from active view. Historical projects are preserved.`, 'info');
+  };
+
+  const restoreWorkflowTemplate = (templateId: string) => {
+    setWorkflowTemplates((prev) =>
+      prev.map((t) => (t.id === templateId ? { ...t, status: 'active', updatedAt: new Date().toISOString() } : t))
+    );
+    logEvent('Business Owner', 'Template Restored', `Restored template to active library.`, 'success');
+  };
+
+  const deleteCustomWorkflowTemplate = (templateId: string) => {
+    setWorkflowTemplates((prev) => prev.filter((t) => t.id !== templateId));
+    logEvent('Business Owner', 'Workflow Template Removed', `Deleted custom workflow template. Existing project history will remain.`, 'info');
+  };
+
+  const saveProjectAsWorkflowTemplate = (projectId: string, customName?: string): string => {
+    const project = projects.find((p) => p.id === projectId);
+    if (!project) return '';
+    const run = workflowRuns.find((r) => r.projectId === projectId);
+    const newId = `tmpl-custom-${Date.now()}`;
+    const personalCount = workflowTemplates.filter((t) => t.templateSource === 'personal').length;
+    const templateName = customName?.trim() || `${project.title} Playbook`;
+
+    // Convert project stages/steps into generic reusable steps with placeholder roles
+    const genericSteps = (run?.steps && run.steps.length > 0)
+      ? run.steps.map((st) => ({
+          title: st.title,
+          employeeCode: st.employeeCode || 'A01',
+          type: st.type,
+          description: st.description
+        }))
+      : (project.stages && project.stages.length > 0)
+      ? project.stages.map((stg) => ({
+          title: stg.name,
+          employeeCode: stg.ownerEmployeeCode || 'A01',
+          type: stg.type === 'human_approval' ? ('human_approval' as WorkflowStepType) : ('employee_task' as WorkflowStepType),
+          description: stg.description || stg.name
+        }))
+      : [
+          { title: 'Project Scoping & Strategy', employeeCode: 'A08', type: 'employee_task' as WorkflowStepType, description: 'Establish scope and objectives.' },
+          { title: 'Content & Campaign Execution', employeeCode: 'A02', type: 'employee_task' as WorkflowStepType, description: 'Produce deliverables.' },
+          { title: 'Human Approval Gate', employeeCode: 'A01', type: 'human_approval' as WorkflowStepType, description: 'Review and approve output.' }
+        ];
+
+    const richSteps: CustomWorkflowStepConfig[] = (run?.steps && run.steps.length > 0)
+      ? run.steps.map((st, idx) => ({
+          id: `step-${idx + 1}`,
+          title: st.title,
+          type: st.type,
+          employeeCode: st.employeeCode || 'A01',
+          humanAssigneeName: st.type === 'human_task' ? 'Workspace Teammate' : undefined,
+          humanAssigneeRole: st.type === 'human_task' ? 'Workspace Teammate' : undefined,
+          description: st.description,
+          expectedOutput: st.type === 'human_approval' ? 'Human Approval Signoff' : 'Deliverables Package',
+          impactCategory: st.type === 'human_approval' ? 'public_publishing' : 'internal_work',
+          conditionConfig: st.conditionConfig,
+          waitConfig: st.waitConfig,
+          handoffConfig: st.handoffConfig,
+          approvalConfig: st.type === 'human_approval' ? {
+            approverRole: 'Project Approver',
+            subjectToApprove: st.title,
+            riskCategory: 'Governance Gate',
+            onApproveAction: 'Advance to next workflow stage',
+            onRequestChangesAction: 'Request revision from responsible specialist'
+          } : undefined
+        }))
+      : genericSteps.map((st, idx) => ({
+          id: `step-${idx + 1}`,
+          title: st.title,
+          type: st.type,
+          employeeCode: st.employeeCode,
+          humanAssigneeRole: st.type === 'human_task' ? 'Workspace Teammate' : undefined,
+          description: st.description,
+          expectedOutput: st.type === 'human_approval' ? 'Human Approval Signoff' : 'Deliverables Package',
+          impactCategory: st.type === 'human_approval' ? 'public_publishing' : 'internal_work'
+        }));
+
+    const newTemplate: WorkflowTemplate = {
+      id: newId,
+      code: `CUSTOM-${personalCount + 1}`,
+      name: templateName,
+      title: templateName,
+      outcome: project.objective,
+      category: 'Custom',
+      shortDescription: `Reusable execution playbook captured from project "${project.title}".`,
+      description: `Created from project "${project.title}". Reusable multi-agent process with sanitized placeholders.`,
+      typicalDuration: '1-2 weeks',
+      complexity: 'moderate',
+      participatingEmployeeIds: project.participatingEmployeeIds,
+      employeeIds: project.participatingEmployeeIds,
+      expectedSteps: genericSteps,
+      approvalPoints: genericSteps.filter((s) => s.type === 'human_approval').map((s) => s.title),
+      requiredConnectionTypes: project.requiredConnections?.map((c) => c.provider) || [],
+      inputs: ['Project Scope Brief', 'Target Audience Context'],
+      outputs: project.deliverables || ['Execution Deliverables Package'],
+      successMetrics: project.successMetrics || ['Milestone Completion: Target 100%'],
+      templateSource: 'personal',
+      status: 'active',
+      version: 1,
+      editable: true,
+      workspaceId: activeWorkspaceId,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      richSteps,
+      trigger: {
+        type: 'PROJECT_CREATED',
+        label: 'Project Created Trigger',
+        description: 'Automatically initiated when a matching business project is initialized.'
+      }
+    };
+
+    setWorkflowTemplates((prev) => [newTemplate, ...prev]);
+    logEvent(
+      'Business Owner',
+      'Project Saved as Template',
+      `Captured reusable template "${templateName}" from project. Private contact and transaction data excluded.`,
+      'success'
+    );
+    return newId;
   };
 
   const disconnectIntegration = (connectionId: string) => {
@@ -1994,6 +2280,30 @@ export const OoumphProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         createProjectTask,
         createApprovalRequest,
         createWorkflowRun,
+        isWorkflowBuilderOpen,
+        setIsWorkflowBuilderOpen,
+        workflowBuilderEditingTemplate,
+        setWorkflowBuilderEditingTemplate,
+        workflowBuilderInitialIntent,
+        setWorkflowBuilderInitialIntent,
+        openWorkflowBuilder,
+        createCustomWorkflowTemplate,
+        updateCustomWorkflowTemplate,
+        duplicateWorkflowTemplate,
+        archiveWorkflowTemplate,
+        restoreWorkflowTemplate,
+        deleteCustomWorkflowTemplate,
+        saveProjectAsWorkflowTemplate,
+        isIntegrationConnectModalOpen,
+        setIsIntegrationConnectModalOpen,
+        connectingProvider,
+        setConnectingProvider,
+        isIntegrationDetailOpen,
+        setIsIntegrationDetailOpen,
+        selectedIntegrationDetailId,
+        setSelectedIntegrationDetailId,
+        openConnectIntegration,
+        openIntegrationDetail,
         updateIntegrationStatus,
         connectIntegration,
         disconnectIntegration,

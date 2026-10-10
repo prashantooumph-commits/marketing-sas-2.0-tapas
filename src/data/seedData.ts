@@ -60,7 +60,32 @@ export const INITIAL_INTEGRATION_CONNECTIONS: IntegrationConnection[] = [
     status: 'connected',
     capabilities: ['Page Administration', 'Ad Account Oversight', 'Asset Sharing'],
     connectedAt: '2026-08-10T10:00:00Z',
-    lastSyncAt: '2026-10-09T03:00:00Z'
+    lastSyncAt: '2026-10-09T03:00:00Z',
+    pingLatencyMs: 44,
+    apiQuotaPercent: 91,
+    tokenExpiresInDays: 58,
+    auditLogs: [
+      {
+        id: 'log-mb-1',
+        timestamp: '2026-10-09T03:00:00Z',
+        method: 'GET',
+        endpoint: '/v21.0/90218820/assigned_users',
+        statusCode: 200,
+        callerEmployeeCode: 'A02',
+        callerName: 'Soren Miller',
+        summary: 'Synchronized portfolio user permissions and verified page roles.'
+      },
+      {
+        id: 'log-mb-2',
+        timestamp: '2026-10-08T18:40:00Z',
+        method: 'POST',
+        endpoint: '/v21.0/act_90218820/campaigns',
+        statusCode: 200,
+        callerEmployeeCode: 'A24',
+        callerName: 'Maya Lin',
+        summary: 'Drafted Q4 Meta ad set preview with $50/day spend safeguard.'
+      }
+    ]
   },
   {
     id: 'conn-fb-page-cedar',
@@ -73,7 +98,22 @@ export const INITIAL_INTEGRATION_CONNECTIONS: IntegrationConnection[] = [
     status: 'connected',
     capabilities: ['Feed Publishing', 'Comment Triage', 'Messenger Routing'],
     connectedAt: '2026-08-10T10:05:00Z',
-    lastSyncAt: '2026-10-09T03:00:00Z'
+    lastSyncAt: '2026-10-09T03:00:00Z',
+    pingLatencyMs: 51,
+    apiQuotaPercent: 88,
+    tokenExpiresInDays: 58,
+    auditLogs: [
+      {
+        id: 'log-fb-1',
+        timestamp: '2026-10-09T03:00:00Z',
+        method: 'GET',
+        endpoint: '/v21.0/me/feed?limit=10',
+        statusCode: 200,
+        callerEmployeeCode: 'A21',
+        callerName: 'Chloe Mercer',
+        summary: 'Scanned 14 recent post comments for feedback sentiment.'
+      }
+    ]
   },
   {
     id: 'conn-ig-pro-cedar',
@@ -86,7 +126,32 @@ export const INITIAL_INTEGRATION_CONNECTIONS: IntegrationConnection[] = [
     status: 'connected',
     capabilities: ['Feed & Reel Publishing', 'Comment Scanning', 'Direct Message Guide Delivery', 'Insights'],
     connectedAt: '2026-08-10T10:10:00Z',
-    lastSyncAt: '2026-10-09T03:15:00Z'
+    lastSyncAt: '2026-10-09T03:15:00Z',
+    pingLatencyMs: 38,
+    apiQuotaPercent: 94,
+    tokenExpiresInDays: 58,
+    auditLogs: [
+      {
+        id: 'log-ig-1',
+        timestamp: '2026-10-09T02:10:00Z',
+        method: 'POST',
+        endpoint: '/v21.0/17841400/messages',
+        statusCode: 200,
+        callerEmployeeCode: 'A23',
+        callerName: 'Astrid Lind',
+        summary: 'Delivered Flagship Guide PDF to @d_kalu following "GROW" keyword trigger.'
+      },
+      {
+        id: 'log-ig-2',
+        timestamp: '2026-10-08T20:15:00Z',
+        method: 'GET',
+        endpoint: '/v21.0/17841400/media?fields=comments_count',
+        statusCode: 200,
+        callerEmployeeCode: 'A02',
+        callerName: 'Soren Miller',
+        summary: 'Retrieved Reel engagement metrics and comment queue.'
+      }
+    ]
   },
   {
     id: 'conn-linkedin-cedar',
@@ -98,7 +163,22 @@ export const INITIAL_INTEGRATION_CONNECTIONS: IntegrationConnection[] = [
     status: 'connected',
     capabilities: ['Thought Leadership Publishing', 'Comment Moderation', 'Lead Gen Analytics'],
     connectedAt: '2026-07-15T09:00:00Z',
-    lastSyncAt: '2026-10-09T02:45:00Z'
+    lastSyncAt: '2026-10-09T02:45:00Z',
+    pingLatencyMs: 62,
+    apiQuotaPercent: 96,
+    tokenExpiresInDays: 45,
+    auditLogs: [
+      {
+        id: 'log-li-1',
+        timestamp: '2026-10-09T02:45:00Z',
+        method: 'GET',
+        endpoint: '/v2/organizationalEntityAcls?q=roleAssignee',
+        statusCode: 200,
+        callerEmployeeCode: 'A02',
+        callerName: 'Soren Miller',
+        summary: 'Checked author credentials for scheduled Executive Fellowship pulse post.'
+      }
+    ]
   },
   {
     id: 'conn-gsuite-cedar',
@@ -110,7 +190,32 @@ export const INITIAL_INTEGRATION_CONNECTIONS: IntegrationConnection[] = [
     status: 'connected',
     capabilities: ['Executive Inbox Sync', 'Google Calendar Defense', 'Drive Document Access'],
     connectedAt: '2026-06-01T12:00:00Z',
-    lastSyncAt: '2026-10-09T03:30:00Z'
+    lastSyncAt: '2026-10-09T03:30:00Z',
+    pingLatencyMs: 29,
+    apiQuotaPercent: 98,
+    tokenExpiresInDays: 90,
+    auditLogs: [
+      {
+        id: 'log-gw-1',
+        timestamp: '2026-10-09T03:30:00Z',
+        method: 'GET',
+        endpoint: '/calendar/v3/calendars/primary/freeBusy',
+        statusCode: 200,
+        callerEmployeeCode: 'A01',
+        callerName: 'Aria Vance',
+        summary: 'Queried founder executive calendar to protect focus blocks.'
+      },
+      {
+        id: 'log-gw-2',
+        timestamp: '2026-10-09T02:25:00Z',
+        method: 'POST',
+        endpoint: '/calendar/v3/calendars/primary/events',
+        statusCode: 200,
+        callerEmployeeCode: 'A17',
+        callerName: 'Jordan Bell',
+        summary: 'Created calendar meeting slot with David Kalu for Thursday 10:00 AM PST.'
+      }
+    ]
   },
   {
     id: 'conn-twilio-cedar',
@@ -122,7 +227,22 @@ export const INITIAL_INTEGRATION_CONNECTIONS: IntegrationConnection[] = [
     status: 'connected',
     capabilities: ['Virtual Receptionist Greeting', 'Voicemail Audio Transcription', 'SMS Notifications'],
     connectedAt: '2026-08-01T14:00:00Z',
-    lastSyncAt: '2026-10-09T01:30:00Z'
+    lastSyncAt: '2026-10-09T01:30:00Z',
+    pingLatencyMs: 31,
+    apiQuotaPercent: 95,
+    tokenExpiresInDays: 120,
+    auditLogs: [
+      {
+        id: 'log-tw-1',
+        timestamp: '2026-10-09T01:30:00Z',
+        method: 'WEBHOOK',
+        endpoint: '/v1/Voice/IncomingCall',
+        statusCode: 200,
+        callerEmployeeCode: 'A05',
+        callerName: 'Rachel Ross',
+        summary: 'Answered inbound inquiry from Dr. Evelyn Reed and logged synthesized transcript.'
+      }
+    ]
   },
   {
     id: 'conn-web-cedar',
@@ -134,7 +254,22 @@ export const INITIAL_INTEGRATION_CONNECTIONS: IntegrationConnection[] = [
     status: 'connected',
     capabilities: ['Landing Page Deployment', 'Instant Rollback', 'Form Capture Webhook'],
     connectedAt: '2026-05-20T11:00:00Z',
-    lastSyncAt: '2026-10-08T18:00:00Z'
+    lastSyncAt: '2026-10-08T18:00:00Z',
+    pingLatencyMs: 18,
+    apiQuotaPercent: 99,
+    tokenExpiresInDays: 365,
+    auditLogs: [
+      {
+        id: 'log-wb-1',
+        timestamp: '2026-10-08T18:00:00Z',
+        method: 'POST',
+        endpoint: '/api/v1/pages/executive-fellowship/deploy',
+        statusCode: 200,
+        callerEmployeeCode: 'A07',
+        callerName: 'Walter Hayes',
+        summary: 'Deployed v2 landing page revision with live speed-to-lead form capture.'
+      }
+    ]
   },
   {
     id: 'conn-gads-cedar',
@@ -146,7 +281,22 @@ export const INITIAL_INTEGRATION_CONNECTIONS: IntegrationConnection[] = [
     status: 'connected',
     capabilities: ['High-Intent Search Bid Simulation', 'Negative Keyword Exclusions'],
     connectedAt: '2026-09-01T10:00:00Z',
-    lastSyncAt: '2026-10-08T16:00:00Z'
+    lastSyncAt: '2026-10-08T16:00:00Z',
+    pingLatencyMs: 46,
+    apiQuotaPercent: 89,
+    tokenExpiresInDays: 60,
+    auditLogs: [
+      {
+        id: 'log-ga-1',
+        timestamp: '2026-10-08T16:00:00Z',
+        method: 'GET',
+        endpoint: '/v17/customers/8812249011/googleAds:searchStream',
+        statusCode: 200,
+        callerEmployeeCode: 'A25',
+        callerName: 'Gideon Vance',
+        summary: 'Synchronized negative keyword exclusions list ("free", "cheap", "jobs").'
+      }
+    ]
   },
   {
     id: 'conn-stripe-cedar',
@@ -158,7 +308,22 @@ export const INITIAL_INTEGRATION_CONNECTIONS: IntegrationConnection[] = [
     status: 'connected',
     capabilities: ['Executive Fellowship Checkout', 'Corporate Net-30 Invoicing'],
     connectedAt: '2026-06-15T09:00:00Z',
-    lastSyncAt: '2026-10-09T02:00:00Z'
+    lastSyncAt: '2026-10-09T02:00:00Z',
+    pingLatencyMs: 24,
+    apiQuotaPercent: 97,
+    tokenExpiresInDays: 300,
+    auditLogs: [
+      {
+        id: 'log-st-1',
+        timestamp: '2026-10-09T02:00:00Z',
+        method: 'POST',
+        endpoint: '/v1/invoices',
+        statusCode: 200,
+        callerEmployeeCode: 'A31',
+        callerName: 'Preston Shaw',
+        summary: 'Prepared corporate Net-30 commercial quotation draft ($18,500).'
+      }
+    ]
   },
 
   // ACME CRAFT GOODS CONNECTIONS

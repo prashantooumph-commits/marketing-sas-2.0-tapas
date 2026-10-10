@@ -36,7 +36,12 @@ import {
   RefreshCw,
   UserPlus,
   RotateCcw,
-  Info
+  Info,
+  Save,
+  Trash2,
+  Copy,
+  Edit3,
+  Eye
 } from 'lucide-react';
 
 export const MyWorkView: React.FC = () => {
@@ -83,7 +88,14 @@ export const MyWorkView: React.FC = () => {
     navigate,
     selectedProjectId,
     setSelectedProjectId,
-    setIsGoalPlannerOpen
+    setIsGoalPlannerOpen,
+    setIsWorkflowBuilderOpen,
+    openWorkflowBuilder,
+    duplicateWorkflowTemplate,
+    archiveWorkflowTemplate,
+    restoreWorkflowTemplate,
+    deleteCustomWorkflowTemplate,
+    saveProjectAsWorkflowTemplate
   } = useOoumph();
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -101,6 +113,13 @@ export const MyWorkView: React.FC = () => {
   const [libraryViewMode, setLibraryViewMode] = useState<'solutions' | 'workflows' | 'all'>('solutions');
   const [workflowSearchQuery, setWorkflowSearchQuery] = useState<string>('');
   const [complexityFilter, setComplexityFilter] = useState<'all' | 'starter' | 'moderate' | 'advanced'>('all');
+
+  // Personal Template Management State (Requirement 10, 14, 15, 16)
+  const [personalTemplateTab, setPersonalTemplateTab] = useState<'active' | 'archived'>('active');
+  const [templateToDelete, setTemplateToDelete] = useState<WorkflowTemplate | null>(null);
+  const [isSaveProjectAsTemplateModalOpen, setIsSaveProjectAsTemplateModalOpen] = useState(false);
+  const [saveProjectTemplateName, setSaveProjectTemplateName] = useState('');
+  const [templateSaveFeedback, setTemplateSaveFeedback] = useState<string | null>(null);
 
   // Filter tasks
   const filteredTasks = tasks.filter((task) => {
@@ -226,13 +245,18 @@ export const MyWorkView: React.FC = () => {
       }
     }
 
-    if (workflowCategoryFilter !== 'All') {
-      if (workflowCategoryFilter === 'My templates') {
-        return false;
-      }
+    if (workflowCategoryFilter === 'My templates') {
+      if (wf.templateSource !== 'personal') return false;
+      if (wf.workspaceId && wf.workspaceId !== activeWorkspace.id) return false;
+      if (personalTemplateTab === 'active' && wf.status === 'archived') return false;
+      if (personalTemplateTab === 'archived' && wf.status !== 'archived') return false;
+    } else if (workflowCategoryFilter !== 'All') {
       if (wf.category !== workflowCategoryFilter) {
         return false;
       }
+      if (wf.status === 'archived') return false;
+    } else {
+      if (wf.status === 'archived') return false;
     }
 
     if (workflowSearchQuery.trim()) {
@@ -269,6 +293,12 @@ export const MyWorkView: React.FC = () => {
 
     return true;
   });
+
+  const personalTemplates = workflowTemplates.filter(
+    (t) => t.templateSource === 'personal' && (!t.workspaceId || t.workspaceId === activeWorkspace.id)
+  );
+  const activePersonalTemplates = personalTemplates.filter((t) => t.status !== 'archived');
+  const archivedPersonalTemplates = personalTemplates.filter((t) => t.status === 'archived');
 
   return (
     <div className="max-w-7xl mx-auto px-6 py-8 space-y-6">
@@ -900,15 +930,48 @@ export const MyWorkView: React.FC = () => {
                   <div className="space-y-4 animate-fade-in">
                     {currentWorkflowRun ? (
                       <div className="space-y-3">
-                        <div className="flex items-center justify-between pb-2 border-b border-slate-100 text-xs">
-                          <div>
-                            <span className="font-semibold text-slate-900">Workflow: </span>
-                            <span className="text-slate-600">{currentWorkflowRun.templateName}</span>
+                        <div className="flex flex-wrap items-center justify-between pb-2 border-b border-slate-100 text-xs gap-2">
+                          <div className="flex items-center gap-2">
+                            <div>
+                              <span className="font-semibold text-slate-900">Workflow: </span>
+                              <span className="text-slate-600">{currentWorkflowRun.templateName}</span>
+                            </div>
+                            <span className="text-slate-400">·</span>
+                            <span className="text-slate-500 font-medium">
+                              Step {currentWorkflowRun.currentStepIndex + 1} of {currentWorkflowRun.steps.length}
+                            </span>
                           </div>
-                          <span className="text-slate-500 font-medium">
-                            Step {currentWorkflowRun.currentStepIndex + 1} of {currentWorkflowRun.steps.length}
-                          </span>
+
+                          {/* Requirement 16 & 17: Save Workflow as Template */}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSaveProjectTemplateName(`${currentProject?.title || 'Project'} Playbook`);
+                              setIsSaveProjectAsTemplateModalOpen(true);
+                            }}
+                            className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold shadow-2xs transition-colors cursor-pointer"
+                            title="Save this project's workflow structure as a reusable template in My Templates"
+                          >
+                            <Save className="h-3.5 w-3.5 text-slate-500" />
+                            <span>Save Workflow as Template</span>
+                          </button>
                         </div>
+
+                        {templateSaveFeedback && (
+                          <div className="p-3 rounded-xl bg-teal-50 border border-teal-200 text-teal-900 text-xs flex items-center justify-between animate-fade-in">
+                            <div className="flex items-center gap-2">
+                              <CheckCircle2 className="h-4 w-4 text-teal-700 shrink-0" />
+                              <span>{templateSaveFeedback}</span>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => setTemplateSaveFeedback(null)}
+                              className="text-teal-700 hover:text-teal-900"
+                            >
+                              <X className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
+                        )}
 
                         <div className="space-y-2.5">
                           {currentWorkflowRun.steps.map((step, idx) => {
@@ -1582,13 +1645,7 @@ export const MyWorkView: React.FC = () => {
 
             <div className="flex items-center gap-2 shrink-0">
               <button
-                onClick={() =>
-                  setPlaceholderModalInfo({
-                    title: 'New Workflow Builder',
-                    description:
-                      'Custom Workflow Authoring is scheduled for Phase 2B.2. You can currently launch any of our 54 pre-built specialist workflows or 15 end-to-end business solutions.'
-                  })
-                }
+                onClick={() => setIsWorkflowBuilderOpen(true)}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-xs font-semibold text-slate-800 shadow-2xs transition-colors cursor-pointer"
               >
                 <Plus className="h-3.5 w-3.5 text-slate-500" />
@@ -1596,13 +1653,7 @@ export const MyWorkView: React.FC = () => {
               </button>
 
               <button
-                onClick={() =>
-                  setPlaceholderModalInfo({
-                    title: 'New Template Builder',
-                    description:
-                      'Custom template authoring and recipe saving will be enabled in the upcoming builder phase (Phase 2B.2).'
-                  })
-                }
+                onClick={() => setIsWorkflowBuilderOpen(true)}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-xs font-semibold text-white shadow-2xs transition-colors cursor-pointer"
               >
                 <Plus className="h-3.5 w-3.5 text-slate-300" />
@@ -1864,12 +1915,129 @@ export const MyWorkView: React.FC = () => {
               </div>
 
               {workflowCategoryFilter === 'My templates' ? (
-                <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50/50 p-10 text-center space-y-2">
-                  <Workflow className="mx-auto h-7 w-7 text-slate-400" />
-                  <div className="text-sm font-semibold text-slate-900">No custom templates yet</div>
-                  <p className="text-xs text-slate-500 max-w-sm mx-auto">
-                    Custom template authoring and recipe saving will be enabled in the upcoming builder phase (Phase 2B.2).
-                  </p>
+                <div className="space-y-4">
+                  {/* Header Bar with Sub-tabs and Create Action */}
+                  <div className="flex flex-wrap items-center justify-between gap-3 pb-2">
+                    <div className="flex items-center gap-1.5 p-1 rounded-xl bg-slate-100 border border-slate-200">
+                      <button
+                        type="button"
+                        onClick={() => setPersonalTemplateTab('active')}
+                        className={`px-3 py-1 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
+                          personalTemplateTab === 'active'
+                            ? 'bg-white text-slate-900 shadow-2xs'
+                            : 'text-slate-600 hover:text-slate-900'
+                        }`}
+                      >
+                        Active Templates ({activePersonalTemplates.length})
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setPersonalTemplateTab('archived')}
+                        className={`px-3 py-1 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
+                          personalTemplateTab === 'archived'
+                            ? 'bg-white text-slate-900 shadow-2xs'
+                            : 'text-slate-600 hover:text-slate-900'
+                        }`}
+                      >
+                        Archived ({archivedPersonalTemplates.length})
+                      </button>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => openWorkflowBuilder()}
+                      className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold transition-colors shadow-2xs cursor-pointer"
+                    >
+                      <Plus className="h-3.5 w-3.5" />
+                      <span>Create Custom Workflow</span>
+                    </button>
+                  </div>
+
+                  {/* Lightweight Versioning & Isolation Notice (Requirement 11 & 12) */}
+                  <div className="p-3 rounded-xl bg-teal-50/70 border border-teal-200/70 text-teal-950 text-xs flex flex-wrap items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <Info className="h-4 w-4 text-teal-700 shrink-0" />
+                      <span>
+                        Personal templates are isolated to <strong>{activeWorkspace.name}</strong>. Changes apply to future runs. Existing Projects are unchanged.
+                      </span>
+                    </div>
+                    <span className="text-[11px] text-teal-800 font-semibold">
+                      Workspace-scoped persistence
+                    </span>
+                  </div>
+
+                  {filteredWorkflows.length === 0 ? (
+                    personalTemplateTab === 'active' ? (
+                      <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50/50 p-10 text-center space-y-3">
+                        <Workflow className="mx-auto h-8 w-8 text-slate-400" />
+                        <div className="text-sm font-bold text-slate-900">No active custom templates yet</div>
+                        <p className="text-xs text-slate-500 max-w-md mx-auto leading-relaxed">
+                          Author a custom multi-agent workflow using the Step Sequence Builder, or save an existing project's workflow from the Project details view.
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() => openWorkflowBuilder()}
+                          className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-slate-900 text-white text-xs font-bold hover:bg-slate-800 transition-colors cursor-pointer"
+                        >
+                          <Plus className="h-3.5 w-3.5" />
+                          <span>Author Custom Workflow</span>
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50/50 p-10 text-center space-y-2">
+                        <RotateCcw className="mx-auto h-7 w-7 text-slate-400" />
+                        <div className="text-sm font-semibold text-slate-900">No archived templates</div>
+                        <p className="text-xs text-slate-500 max-w-sm mx-auto">
+                          Personal templates you archive will appear here and can be restored back to your active library at any time.
+                        </p>
+                      </div>
+                    )
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {filteredWorkflows.map((workflow) => (
+                        <WorkflowCard
+                          key={workflow.id}
+                          workflow={workflow}
+                          employees={employees}
+                          isPersonal={true}
+                          isArchived={personalTemplateTab === 'archived'}
+                          onClick={() => {
+                            setSelectedWorkflowTemplateId(workflow.id);
+                            setIsWorkflowDetailOpen(true);
+                          }}
+                          onLaunch={(e) => {
+                            e.stopPropagation();
+                            openWorkflowSetup(workflow.id);
+                          }}
+                          onPreview={(e) => {
+                            e.stopPropagation();
+                            setSelectedWorkflowTemplateId(workflow.id);
+                            setIsWorkflowDetailOpen(true);
+                          }}
+                          onDuplicate={(e) => {
+                            e.stopPropagation();
+                            duplicateWorkflowTemplate(workflow.id);
+                          }}
+                          onEdit={(e) => {
+                            e.stopPropagation();
+                            openWorkflowBuilder(workflow);
+                          }}
+                          onArchive={(e) => {
+                            e.stopPropagation();
+                            archiveWorkflowTemplate(workflow.id);
+                          }}
+                          onRestore={(e) => {
+                            e.stopPropagation();
+                            restoreWorkflowTemplate(workflow.id);
+                          }}
+                          onDelete={(e) => {
+                            e.stopPropagation();
+                            setTemplateToDelete(workflow);
+                          }}
+                        />
+                      ))}
+                    </div>
+                  )}
                 </div>
               ) : filteredWorkflows.length === 0 ? (
                 <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50/50 p-8 text-center space-y-2">
@@ -1892,21 +2060,59 @@ export const MyWorkView: React.FC = () => {
                 </div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {filteredWorkflows.map((workflow) => (
-                    <WorkflowCard
-                      key={workflow.id}
-                      workflow={workflow}
-                      employees={employees}
-                      onClick={() => {
-                        setSelectedWorkflowTemplateId(workflow.id);
-                        setIsWorkflowDetailOpen(true);
-                      }}
-                      onLaunch={(e) => {
-                        e.stopPropagation();
-                        openWorkflowSetup(workflow.id);
-                      }}
-                    />
-                  ))}
+                  {filteredWorkflows.map((workflow) => {
+                    const isPersonal = workflow.templateSource === 'personal';
+                    return (
+                      <WorkflowCard
+                        key={workflow.id}
+                        workflow={workflow}
+                        employees={employees}
+                        isPersonal={isPersonal}
+                        isArchived={workflow.status === 'archived'}
+                        onClick={() => {
+                          setSelectedWorkflowTemplateId(workflow.id);
+                          setIsWorkflowDetailOpen(true);
+                        }}
+                        onLaunch={(e) => {
+                          e.stopPropagation();
+                          openWorkflowSetup(workflow.id);
+                        }}
+                        onPreview={(e) => {
+                          e.stopPropagation();
+                          setSelectedWorkflowTemplateId(workflow.id);
+                          setIsWorkflowDetailOpen(true);
+                        }}
+                        onDuplicate={(e) => {
+                          e.stopPropagation();
+                          duplicateWorkflowTemplate(workflow.id);
+                        }}
+                        onEdit={
+                          isPersonal
+                            ? (e) => {
+                                e.stopPropagation();
+                                openWorkflowBuilder(workflow);
+                              }
+                            : undefined
+                        }
+                        onArchive={
+                          isPersonal
+                            ? (e) => {
+                                e.stopPropagation();
+                                archiveWorkflowTemplate(workflow.id);
+                              }
+                            : undefined
+                        }
+                        onDelete={
+                          isPersonal
+                            ? (e) => {
+                                e.stopPropagation();
+                                setTemplateToDelete(workflow);
+                              }
+                            : undefined
+                        }
+                      />
+                    );
+                  })}
                 </div>
               )}
             </div>
@@ -2098,6 +2304,122 @@ export const MyWorkView: React.FC = () => {
                 className="px-4 py-2 rounded-lg bg-slate-900 text-white text-xs font-semibold hover:bg-slate-800 transition-colors cursor-pointer"
               >
                 Understood
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* SAFE DELETE CONFIRMATION MODAL (Requirement 15) */}
+      {templateToDelete && (
+        <div className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xs animate-fade-in">
+          <div className="relative w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl space-y-4">
+            <div className="flex items-start gap-3">
+              <div className="h-10 w-10 rounded-full bg-rose-100 text-rose-700 flex items-center justify-center shrink-0">
+                <Trash2 className="h-5 w-5" />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-slate-900">
+                  Delete Template: {templateToDelete.name || templateToDelete.title}?
+                </h3>
+                <p className="text-xs text-slate-500 mt-1.5 leading-relaxed">
+                  This removes the reusable template. Existing Project history will remain.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setTemplateToDelete(null)}
+                className="px-3.5 py-1.5 rounded-lg border border-slate-200 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  deleteCustomWorkflowTemplate(templateToDelete.id);
+                  setTemplateToDelete(null);
+                }}
+                className="px-4 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold transition-colors shadow-2xs cursor-pointer"
+              >
+                Delete Template
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* SAVE WORKFLOW AS TEMPLATE MODAL (Requirement 16 & 17) */}
+      {isSaveProjectAsTemplateModalOpen && currentProject && (
+        <div className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xs animate-fade-in">
+          <div className="relative w-full max-w-lg rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <div className="flex items-center gap-2">
+                <Save className="h-4 w-4 text-slate-700" />
+                <h3 className="text-sm font-bold text-slate-900">Save Workflow as Template</h3>
+              </div>
+              <button
+                onClick={() => setIsSaveProjectAsTemplateModalOpen(false)}
+                className="text-slate-400 hover:text-slate-600 p-1 rounded-lg"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="space-y-3 text-xs">
+              <div>
+                <label className="block font-semibold text-slate-800 mb-1">
+                  Template Name
+                </label>
+                <input
+                  type="text"
+                  value={saveProjectTemplateName}
+                  onChange={(e) => setSaveProjectTemplateName(e.target.value)}
+                  placeholder="e.g. Weekly Content Production Playbook"
+                  className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-900 focus:bg-white focus:outline-hidden"
+                />
+              </div>
+
+              {/* Data Sanitization Guarantee Notice (Requirement 16 & 17) */}
+              <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 space-y-2 text-slate-600">
+                <span className="font-bold text-slate-900 block">Reusable Structure Preserved:</span>
+                <ul className="space-y-1 list-disc list-inside text-[11px] text-slate-600">
+                  <li>Workflow step sequences and assigned AI employee roles</li>
+                  <li>Human role placeholders (e.g. "Project Approver", "Workspace Teammate")</li>
+                  <li>Trigger configuration, connection requirements, governance policies & metrics</li>
+                </ul>
+
+                <div className="pt-1.5 border-t border-slate-200/60 text-[11px] text-slate-500">
+                  <span className="font-semibold text-teal-800">Private Data Excluded:</span> Personal contact details, CRM prospect records, approval decisions, comments, and timestamps will not be copied.
+                </div>
+              </div>
+
+              <p className="text-[11px] text-slate-500 italic">
+                Changes apply to future runs. Existing Projects are unchanged.
+              </p>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setIsSaveProjectAsTemplateModalOpen(false)}
+                className="px-3.5 py-1.5 rounded-lg border border-slate-200 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const finalName = saveProjectTemplateName.trim() || `${currentProject.title} Playbook`;
+                  saveProjectAsWorkflowTemplate(currentProject.id, finalName);
+                  setIsSaveProjectAsTemplateModalOpen(false);
+                  setTemplateSaveFeedback(`Saved "${finalName}" to My Templates! Find and run it under My Work → Workflows → My Templates.`);
+                }}
+                className="px-4 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold transition-colors shadow-2xs cursor-pointer"
+              >
+                Save to My Templates
               </button>
             </div>
           </div>

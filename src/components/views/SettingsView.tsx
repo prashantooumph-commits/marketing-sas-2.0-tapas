@@ -6,6 +6,7 @@ import {
   TeamMember,
   Workspace
 } from '../../types';
+import { PROVIDER_CATALOG } from '../../data/integrationDirectory';
 import {
   Building2,
   Plug,
@@ -51,7 +52,9 @@ export const SettingsView: React.FC = () => {
     teamMembers,
     inviteTeamMember,
     removeTeamMember,
-    navigate
+    navigate,
+    openConnectIntegration,
+    openIntegrationDetail
   } = useOoumph();
 
   const [activeTab, setActiveTab] = useState<'workspace' | 'integrations' | 'autonomy' | 'brand' | 'team'>('workspace');
@@ -379,8 +382,8 @@ export const SettingsView: React.FC = () => {
               </div>
 
               <button
-                onClick={() => setIsConnectModalOpen(true)}
-                className="flex items-center gap-1.5 rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white hover:bg-slate-800 transition-colors shadow-2xs"
+                onClick={() => openConnectIntegration()}
+                className="flex items-center gap-1.5 rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white hover:bg-slate-800 transition-colors shadow-2xs cursor-pointer"
               >
                 <Plus className="h-3.5 w-3.5" />
                 <span>Connect Channel</span>
@@ -516,23 +519,69 @@ export const SettingsView: React.FC = () => {
                         ))}
                       </div>
                     </div>
+
+                    {/* Assigned Employees using this channel */}
+                    {(() => {
+                      const catalogItem = PROVIDER_CATALOG.find((p) => p.provider === conn.provider);
+                      const assignedEmps = employees.filter((e) =>
+                        catalogItem?.associatedEmployeeCodes.includes(e.code)
+                      );
+                      if (assignedEmps.length === 0) return null;
+                      return (
+                        <div className="pt-1">
+                          <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1">
+                            Assigned AI Employees ({assignedEmps.length})
+                          </div>
+                          <div className="flex flex-wrap gap-1">
+                            {assignedEmps.slice(0, 4).map((emp) => (
+                              <span
+                                key={emp.id}
+                                className="inline-flex items-center gap-1 rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-700"
+                              >
+                                <span
+                                  className={`h-2.5 w-2.5 rounded-full ${emp.avatarColor} text-white font-bold text-[6px] flex items-center justify-center`}
+                                >
+                                  {emp.code}
+                                </span>
+                                <span>{emp.name}</span>
+                              </span>
+                            ))}
+                            {assignedEmps.length > 4 && (
+                              <span className="text-[10px] text-slate-400 self-center font-medium">
+                                +{assignedEmps.length - 4} more
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })()}
                   </div>
 
-                  {/* Footer controls & last sync */}
-                  <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
-                    <div>
-                      {conn.lastSyncAt ? (
-                        <span>Last sync: {new Date(conn.lastSyncAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                      ) : (
-                        <span>Not synced yet</span>
-                      )}
+                  {/* Footer controls & customer-facing sync info */}
+                  <div className="pt-3 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500">
+                    <div className="flex items-center gap-2">
+                      <span className="text-[11px]">
+                        {conn.lastSyncAt ? (
+                          `Synced ${new Date(conn.lastSyncAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
+                        ) : (
+                          'Ready to sync'
+                        )}
+                      </span>
                     </div>
 
                     <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => openIntegrationDetail(conn.id)}
+                        className="text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 px-2.5 py-1 rounded-md transition-colors cursor-pointer"
+                        title="View connection health, audit trail, and diagnostics"
+                      >
+                        Advanced Diagnostics
+                      </button>
+
                       {isNeedsAttention ? (
                         <button
                           onClick={() => reconnectIntegration(conn.id)}
-                          className="flex items-center gap-1 text-xs font-semibold text-amber-800 bg-amber-100 hover:bg-amber-200 px-2.5 py-1 rounded transition-colors"
+                          className="flex items-center gap-1 text-xs font-semibold text-amber-800 bg-amber-100 hover:bg-amber-200 px-2.5 py-1 rounded transition-colors cursor-pointer"
                         >
                           <RefreshCw className="h-3 w-3" />
                           <span>Re-authorize</span>
@@ -540,7 +589,7 @@ export const SettingsView: React.FC = () => {
                       ) : isDisconnected ? (
                         <button
                           onClick={() => reconnectIntegration(conn.id)}
-                          className="text-xs font-semibold text-slate-800 bg-slate-100 hover:bg-slate-200 px-2.5 py-1 rounded transition-colors"
+                          className="text-xs font-semibold text-slate-800 bg-slate-100 hover:bg-slate-200 px-2.5 py-1 rounded transition-colors cursor-pointer"
                         >
                           Reconnect
                         </button>
@@ -550,7 +599,7 @@ export const SettingsView: React.FC = () => {
                             onClick={() => {
                               updateIntegrationStatus(conn.id, 'needs_attention', ['Simulated OAuth token refresh warning (test trigger)']);
                             }}
-                            className="text-[11px] text-slate-400 hover:text-slate-600 transition-colors"
+                            className="text-[11px] text-slate-400 hover:text-slate-600 transition-colors cursor-pointer"
                             title="Simulate token expiration scenario"
                           >
                             Simulate Issue
@@ -558,7 +607,7 @@ export const SettingsView: React.FC = () => {
                           <span>·</span>
                           <button
                             onClick={() => setDisconnectTarget(conn)}
-                            className="text-xs text-rose-600 hover:text-rose-800 font-medium transition-colors"
+                            className="text-xs text-rose-600 hover:text-rose-800 font-medium transition-colors cursor-pointer"
                           >
                             Disconnect
                           </button>

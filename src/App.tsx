@@ -22,6 +22,9 @@ import { WorkflowSetupWizardModal } from './components/modals/WorkflowSetupWizar
 import { AddTeammateModal } from './components/modals/AddTeammateModal';
 import { BusinessSolutionDetailModal } from './components/workflows/BusinessSolutionDetailModal';
 import { WorkflowDetailModal } from './components/workflows/WorkflowDetailModal';
+import { IntegrationConnectModal } from './components/modals/IntegrationConnectModal';
+import { IntegrationDetailModal } from './components/modals/IntegrationDetailModal';
+import { WorkflowBuilderModal } from './components/workflows/builder/WorkflowBuilderModal';
 import {
   Users,
   Layers,
@@ -71,7 +74,17 @@ const AppContent: React.FC = () => {
     startWorkflowFromTemplate,
     openWorkflowSetup,
     openBusinessSolutionSetup,
-    setWorkTab
+    setWorkTab,
+    isIntegrationConnectModalOpen,
+    setIsIntegrationConnectModalOpen,
+    connectingProvider,
+    isIntegrationDetailOpen,
+    setIsIntegrationDetailOpen,
+    selectedIntegrationDetailId,
+    isWorkflowBuilderOpen,
+    setIsWorkflowBuilderOpen,
+    duplicateWorkflowTemplate,
+    openWorkflowBuilder
   } = useOoumph();
 
   const [isMobileMoreOpen, setIsMobileMoreOpen] = useState(false);
@@ -367,6 +380,12 @@ const AppContent: React.FC = () => {
         onSelectRecommendedWorkflow={(wfId) => {
           setSelectedWorkflowTemplateId(wfId);
         }}
+        onDuplicate={(wf) => {
+          duplicateWorkflowTemplate(wf.id);
+        }}
+        onEdit={(wf) => {
+          openWorkflowBuilder(wf);
+        }}
       />
 
       {/* Generic Workflow & Solution Setup Wizard (Phase 2B.2) */}
@@ -374,6 +393,21 @@ const AppContent: React.FC = () => {
 
       {/* Project Teammate Collaboration Modal (Phase 2B.2) */}
       <AddTeammateModal />
+
+      {/* Integration Connection & Diagnostics Modals */}
+      <IntegrationConnectModal
+        isOpen={isIntegrationConnectModalOpen}
+        onClose={() => setIsIntegrationConnectModalOpen(false)}
+        initialProvider={connectingProvider}
+      />
+      <IntegrationDetailModal
+        isOpen={isIntegrationDetailOpen}
+        onClose={() => setIsIntegrationDetailOpen(false)}
+        connectionId={selectedIntegrationDetailId}
+      />
+
+      {/* Custom Multi-Agent Workflow Builder */}
+      <WorkflowBuilderModal />
     </div>
   );
 };

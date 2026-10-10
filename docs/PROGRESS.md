@@ -150,3 +150,55 @@
 ### Verification
 - `compile_applet`: Passed.
 - `lint_applet`: Passed (0 errors, 0 warnings).
+
+## Phase 2C Execution: Connected Account Experience, Shared Integration Context & Custom Workflow Authoring Log
+
+### Exact Files Changed
+1. `src/types/index.ts`:
+   - Enriched `IntegrationConnection` with `pingLatencyMs`, `apiQuotaPercent`, `tokenExpiresInDays`, and `auditLogs`.
+   - Defined `IntegrationApiLog` with timestamp, HTTP method, endpoint, status code, caller specialist, and summary.
+2. `src/data/integrationDirectory.ts` (New Data Layer):
+   - Defined structured provider catalog covering Meta Business Portfolio, Facebook Page, Instagram Professional, LinkedIn Company Page, Google Workspace G-Suite, WhatsApp Business Cloud, Google Ads, Headless Website CMS, Twilio Virtual Voice Line, and Stripe Merchant Billing.
+   - Mapped every one of the 32 AI employee codes (A01-A32) to their primary and secondary integration channels and exact operational usage.
+3. `src/data/seedData.ts`:
+   - Augmented `INITIAL_INTEGRATION_CONNECTIONS` with realistic ping latencies, API quotas, token expiration windows, and initial historical audit logs across Meta, Instagram, Google Workspace, Twilio, Website, Google Ads, and Stripe.
+4. `src/components/modals/IntegrationConnectModal.tsx` (New Component):
+   - 4-stage guided authorization wizard:
+     1. *Select & ID*: Choose provider, customize account display name, handle/URL/CID with workspace isolation guarantee.
+     2. *Scopes & Safety*: Transparent list of granted API capabilities, requested OAuth scopes, and founder protection guardrails (read-and-draft by default, budget spend gates).
+     3. *Test Ping*: Animated handshake latency test against simulated API endpoints (20-50ms) with protocol version verification.
+     4. *AI Activation*: Live roster of specialists empowered by this connection with immediate deployment readiness.
+5. `src/components/modals/IntegrationDetailModal.tsx` (New Component):
+   - Diagnostic panel for connected channels featuring:
+     - Real-time KPI scorecards (round-trip latency, remaining daily quota, token expiry countdown, protocol version).
+     - Test Handshake Ping runner with live latency updates.
+     - Simulated API Event injector and simulated OAuth expiration/re-authorization trigger.
+     - Associated AI Specialists cards with 1-click "Open Workspace" jump button.
+     - Chronological API Audit Trail showing HTTP methods, endpoints, status codes, and initiating specialists.
+6. `src/components/workflows/builder/WorkflowBuilderModal.tsx` (New Component):
+   - Fully interactive custom multi-agent workflow authoring canvas:
+     1. *Basics & Trigger*: Title, category, business outcome, trigger type (Manual, Schedule, Social Comment Keyword, Form Submit, Lead Captured, Order, Deal Stage), and duration.
+     2. *Multi-Agent Steps*: Visual sequence builder allowing steps assignment across all 32 AI employees, human approval review gates, reordering controls (Move Up/Down), step deletion, and inline prompt/instruction editing.
+     3. *Connections & Governance*: Channel dependencies picker and execution safety policies.
+     4. *Review & Deploy*: Executive scope recap with dual options to "Save to My Templates" or "Save & Launch Immediately" (spawning an active Project and running the workflow).
+7. `src/components/views/SettingsView.tsx`:
+   - Connected "Connect Channel" button to `openConnectIntegration()`.
+   - Enhanced connection cards with live ping latency badges and a dedicated "Diagnostics & Logs" button triggering `openIntegrationDetail(conn.id)`.
+8. `src/components/employee/EmployeeWorkspace.tsx`:
+   - Added channel status pill to the employee header showing the connected account handle with 1-click diagnostic launcher.
+   - Added contextual warning banner when an employee's required channel is disconnected or requires attention, complete with an instant "Open Diagnostics" action.
+   - Added missing channel prompt for unintegrated roles with 1-click "Connect Channel".
+9. `src/components/views/MyWorkView.tsx`:
+   - Replaced placeholder dialogs on `+ New workflow` and `+ New template` buttons with direct invocation of `WorkflowBuilderModal`.
+10. `src/store/ooumphStore.tsx`:
+    - Added state and action handlers for `WorkflowBuilderModal`, `IntegrationConnectModal`, and `IntegrationDetailModal`.
+    - Integrated `INITIAL_PERSONAL_TEMPLATES` into initial workflow templates state.
+    - Implemented `createCustomWorkflowTemplate` and `deleteCustomWorkflowTemplate`.
+    - Enriched `connectIntegration` with health metrics and initial audit logs.
+11. `src/App.tsx`:
+    - Mounted `IntegrationConnectModal`, `IntegrationDetailModal`, and `WorkflowBuilderModal`.
+
+### Verification
+- `compile_applet`: Passed.
+- `lint_applet`: Passed (`tsc --noEmit`, 0 warnings, 0 errors).
+
