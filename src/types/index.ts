@@ -76,6 +76,18 @@ export interface Task {
   createdAt: string;
   scheduledFor?: string;
   version: number;
+  dependsOn?: string;
+  expectedOutput?: string;
+  inputs?: string[];
+  cadence?: string;
+  // Phase 2C.2B extensions:
+  taskType?: TaskType;
+  outputFormat?: string;
+  outputQuantity?: string;
+  needsApproval?: boolean;
+  approvalMode?: 'none' | 'review_before_completion' | 'review_before_external';
+  recurringAutomationId?: string;
+  runLabel?: string;
 }
 
 export interface ProjectAsset {
@@ -89,6 +101,18 @@ export interface ProjectAsset {
   status: 'draft' | 'ready_for_review' | 'approved' | 'published';
   content?: string;
   metadata?: Record<string, any>;
+  stepId?: string;
+  workflowRunId?: string;
+  version?: number;
+  approvedBy?: string;
+  producedByEmployeeCode?: string;
+  usedByEmployeeCode?: string;
+  usedByStepTitle?: string;
+  sourceType?: 'project' | 'sample';
+  roleArtifactRef?: {
+    employeeCode: string;
+    artifactType: string;
+  };
 }
 
 export interface ApprovalRequest {
@@ -228,6 +252,116 @@ export type GoalIntent =
 
 export type ProjectStatus = 'planning' | 'ready' | 'in_progress' | 'needs_review' | 'completed' | 'paused';
 
+export type ProjectType =
+  | 'ONE_TIME_INITIATIVE'
+  | 'FIXED_CAMPAIGN'
+  | 'RECURRING_PROGRAMME'
+  | 'ONGOING_OPERATING_PROGRAMME'
+  | 'EVENT_DRIVEN_PROGRAMME'
+  | 'MULTI_PHASE_INITIATIVE';
+
+export type ProjectCadenceType = 
+  | 'one_time'
+  | 'daily'
+  | 'weekdays'
+  | 'weekly'
+  | 'monthly'
+  | 'event_driven'
+  | 'custom_demo'
+  | 'recurring_weekly'
+  | 'multi_phase_ongoing';
+
+export type ProjectEndRule =
+  | 'specific_date'
+  | 'after_weeks'
+  | 'after_months'
+  | 'after_occurrences'
+  | 'no_end_date'
+  | 'ongoing';
+
+export type TaskType = 
+  | 'one_time'
+  | 'scheduled_one_time'
+  | 'recurring'
+  | 'event_driven'
+  | 'project_step';
+
+export type AutomationCadenceType = 
+  | 'daily'
+  | 'weekdays'
+  | 'weekly'
+  | 'monthly'
+  | 'event_driven'
+  | 'custom_demo';
+
+export type AutomationTriggerEvent =
+  | 'new_lead'
+  | 'new_form_submission'
+  | 'new_inbound_message'
+  | 'social_keyword_comment'
+  | 'new_order'
+  | 'deal_stage_change'
+  | 'previous_workflow_completion';
+
+export type AutomationStatus =
+  | 'draft'
+  | 'scheduled'
+  | 'active'
+  | 'paused'
+  | 'completed'
+  | 'ended'
+  | 'needs_attention';
+
+export interface RecurringAutomation {
+  id: string;
+  workspaceId: string;
+  projectId?: string;
+  workflowTemplateId?: string;
+  employeeId?: string;
+  title: string;
+  description: string;
+  cadenceType: AutomationCadenceType;
+  scheduleDetails: {
+    daysOfWeek?: string[];
+    timeOfDay?: string;
+    timezone?: string;
+    monthlyRule?: string;
+    triggerEvent?: AutomationTriggerEvent;
+    triggerSummary?: string;
+  };
+  startDate: string;
+  endDate?: string;
+  endRule?: 'ongoing' | 'until_date' | 'max_occurrences';
+  occurrenceLimit?: number;
+  occurrencesCompleted: number;
+  nextRunDate?: string;
+  lastRunDate?: string;
+  lastRunStatus?: 'completed' | 'completed_with_changes' | 'skipped' | 'needs_attention';
+  lastRunOutputSummary?: string;
+  status: AutomationStatus;
+  approvalBehavior: 'none' | 'review_before_completion' | 'review_before_external';
+  expectedOutput: string;
+  outputFormat?: string;
+  createdAt: string;
+  updatedAt: string;
+  pausedSince?: string;
+  skipNextScheduled?: boolean;
+}
+
+export interface WorkspaceWorkDefaults {
+  defaultTimezone: string;
+  defaultWorkingDays: string[];
+  defaultWorkingHours: string;
+  defaultApprovalMode: 'none' | 'review_before_completion' | 'review_before_external';
+  defaultProjectOwnerId: string;
+  defaultProjectApproverId: string;
+  notifyOnRecurringRunComplete: boolean;
+  notifyOnHumanTaskAssigned: boolean;
+  notifyOnApprovalRequired: boolean;
+  notifyOnProjectBlocked: boolean;
+  notifyOnConnectionFailure: boolean;
+}
+
 export interface ProjectStage {
   id: string;
   name: string;
@@ -295,6 +429,36 @@ export interface Project {
   targetMetricsValues?: Record<string, string>;
   projectAssets?: ProjectAsset[];
   connectionBlockers?: string[];
+  cadenceType?: ProjectCadenceType;
+  startDate?: string;
+  isOngoing?: boolean;
+  // Phase 2C.2B extensions:
+  projectType?: ProjectType;
+  endDate?: string;
+  endRule?: ProjectEndRule;
+  pausedSince?: string;
+  activeAutomationId?: string;
+  scheduleDetails?: {
+    daysOfWeek?: string[];
+    timeOfDay?: string;
+    timezone?: string;
+    monthlyRule?: string;
+    triggerEvent?: AutomationTriggerEvent;
+    triggerSummary?: string;
+    nextRunDate?: string;
+    lastRunDate?: string;
+    occurrenceLimit?: number;
+    occurrencesCompleted?: number;
+  };
+  runHistory?: {
+    id: string;
+    runNumber: number;
+    date: string;
+    status: 'completed' | 'completed_with_changes' | 'skipped' | 'running' | 'needs_attention';
+    outputCount: number;
+    runLabel: string;
+    summary?: string;
+  }[];
 }
 
 export type WorkflowStepType =
@@ -415,6 +579,14 @@ export interface WorkflowStep {
   handoffConfig?: WorkflowHandoffConfig;
   approvalConfig?: WorkflowApprovalConfig;
   impactCategory?: StepImpactCategory;
+  inputs?: string[];
+  expectedOutput?: string;
+  actualOutputArtifactId?: string;
+  actualOutputTitle?: string;
+  inputArtifacts?: string[];
+  startedAt?: string;
+  completedAt?: string;
+  cadence?: string;
 }
 
 export interface BusinessSolution {
@@ -487,12 +659,20 @@ export interface WorkflowRun {
   templateId: string;
   templateName: string;
   title: string;
-  status: 'ready_to_start' | 'running' | 'paused' | 'completed';
+  status: 'ready_to_start' | 'running' | 'paused' | 'completed' | 'skipped';
   projectId: string;
   currentStepIndex: number;
   steps: WorkflowStep[];
   startedAt: string;
   completedAt?: string;
+  // Phase 2C.2B extensions:
+  runNumber?: number;
+  runLabel?: string;
+  scheduledFor?: string;
+  isRecurringRun?: boolean;
+  recurringAutomationId?: string;
+  outputCount?: number;
+  runSummary?: string;
 }
 
 export type IntegrationProvider = 
@@ -561,6 +741,7 @@ export interface ActivityEvent {
   action: string;
   details: string;
   timestamp: string;
+  category?: 'work' | 'approval' | 'handoff' | 'system';
 }
 
 export interface AutonomyActionRule {
@@ -593,6 +774,7 @@ export interface UserSettings {
   };
   employeeOverrides: EmployeeAutonomyOverride[];
   actionRules: AutonomyActionRule[];
+  workDefaults?: WorkspaceWorkDefaults;
 }
 
 export interface SimulationLogEvent {

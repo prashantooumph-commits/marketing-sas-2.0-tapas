@@ -56,7 +56,8 @@ export const EmployeeChooserModal: React.FC = () => {
     setEmployeeChooserInitialTask,
     employees,
     selectEmployee,
-    sendMessage
+    sendMessage,
+    openAssignmentComposer
   } = useOoumph();
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -140,12 +141,9 @@ export const EmployeeChooserModal: React.FC = () => {
 
   const handleAssignTask = (emp: Employee, taskText?: string) => {
     const finalTask = taskText || currentTaskInput;
-    if (finalTask.trim()) {
-      sendMessage(emp.id, finalTask);
-    }
-    selectEmployee(emp.id);
     setIsEmployeeChooserOpen(false);
     setEmployeeChooserInitialTask('');
+    openAssignmentComposer(emp.id, finalTask);
   };
 
   const handleViewEmployee = (emp: Employee) => {

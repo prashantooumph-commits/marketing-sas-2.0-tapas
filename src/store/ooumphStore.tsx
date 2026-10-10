@@ -27,7 +27,13 @@ import {
   ProjectStage,
   ProjectCollaborator,
   ProjectCollaboratorRole,
-  AppView
+  AppView,
+  RecurringAutomation,
+  AutomationTriggerEvent,
+  WorkspaceWorkDefaults,
+  TaskType,
+  ProjectType,
+  ProjectEndRule
 } from '../types';
 import { INITIAL_EMPLOYEES } from '../data/employees';
 import { INITIAL_WORKSPACES } from '../data/workspaces';
@@ -47,7 +53,8 @@ import {
   INITIAL_BUSINESS_SOLUTIONS,
   INITIAL_TEAM_MEMBERS,
   INITIAL_ACTIVITY_EVENTS,
-  INITIAL_SCHEDULED_MEETINGS
+  INITIAL_SCHEDULED_MEETINGS,
+  INITIAL_RECURRING_AUTOMATIONS
 } from '../data/seedData';
 import { INITIAL_PERSONAL_TEMPLATES } from '../data/personalTemplates';
 
@@ -55,7 +62,7 @@ interface OoumphContextType {
   // Navigation & View State
   currentView: AppView;
   selectedEmployeeId: string | null;
-  workTab: 'projects' | 'tasks' | 'workflows' | 'calendar' | 'assets' | 'results' | 'campaigns';
+  workTab: 'projects' | 'tasks' | 'workflows' | 'calendar' | 'assets' | 'results' | 'campaigns' | 'routines';
   inboxTab: 'conversations' | 'questions' | 'approvals';
   isDemoToolsOpen: boolean;
   isFlagshipSimulatorOpen: boolean;
@@ -73,6 +80,7 @@ interface OoumphContextType {
   demoMode: 'seeded' | 'fresh';
 
   // Domain Entities
+  activeWorkspaceId: string;
   activeWorkspace: Workspace;
   allWorkspaces: Workspace[];
   employees: Employee[];
@@ -93,11 +101,12 @@ interface OoumphContextType {
   teamMembers: TeamMember[];
   activityEvents: ActivityEvent[];
   scheduledMeetings: ScheduledMeeting[];
+  recurringAutomations: RecurringAutomation[];
 
   // Actions
   navigate: (view: AppView, employeeId?: string | null) => void;
   selectEmployee: (employeeId: string | null) => void;
-  setWorkTab: (tab: 'projects' | 'tasks' | 'workflows' | 'calendar' | 'assets' | 'results' | 'campaigns') => void;
+  setWorkTab: (tab: 'projects' | 'tasks' | 'workflows' | 'calendar' | 'assets' | 'results' | 'campaigns' | 'routines') => void;
   setInboxTab: (tab: 'conversations' | 'questions' | 'approvals') => void;
   setIsDemoToolsOpen: (open: boolean) => void;
   setIsFlagshipSimulatorOpen: (open: boolean) => void;
@@ -142,8 +151,8 @@ interface OoumphContextType {
   switchWorkspace: (workspaceId: string) => void;
 
   // Business Handlers
-  sendMessage: (employeeId: string, text: string) => void;
-  toggleTakeover: (employeeId: string) => void;
+  sendMessage: (employeeId: string, text: string, projectId?: string | null) => void;
+  toggleTakeover: (employeeId: string, projectId?: string | null) => void;
   approveRequest: (approvalId: string) => void;
   rejectRequest: (approvalId: string) => void;
   requestChangesOnApproval: (approvalId: string, feedback: string) => void;
@@ -179,9 +188,20 @@ interface OoumphContextType {
   createProject: (projectData: Omit<Project, 'id' | 'createdAt' | 'updatedAt'>) => string;
   updateProject: (projectId: string, partial: Partial<Project>) => void;
   startProject: (projectId: string) => void;
+  pauseProject: (projectId: string) => void;
+  resumeProject: (projectId: string) => void;
+  duplicateProject: (projectId: string) => string;
+  archiveProject: (projectId: string) => void;
   createProjectTask: (taskData: Omit<Task, 'id' | 'createdAt' | 'version'>) => string;
   createApprovalRequest: (requestData: Omit<ApprovalRequest, 'id' | 'createdAt'>) => string;
-  createWorkflowRun: (runData: Omit<WorkflowRun, 'id'>) => string;
+  createWorkflowRun: (runData: Omit<WorkflowRun, 'id'> & { id?: string }) => string;
+  completeHumanTask: (projectId: string, stepId: string, notes?: string) => void;
+  advanceWaitStep: (projectId: string, stepId: string) => void;
+  evaluateConditionStep: (projectId: string, stepId: string, forceBranch?: 'then' | 'else') => void;
+  addProjectActivity: (projectId: string, event: { actorName: string; actorType: 'employee' | 'human' | 'system'; action: string; details: string; category?: 'work' | 'approval' | 'handoff' | 'system' }) => void;
+  activeEmployeeProjectContext: { employeeId: string; projectId: string | null; taskId?: string | null } | null;
+  openEmployeeWorkspaceWithProjectContext: (employeeId: string, projectId: string | null, taskId?: string | null) => void;
+  clearEmployeeProjectContext: () => void;
   isWorkflowBuilderOpen: boolean;
   setIsWorkflowBuilderOpen: (open: boolean) => void;
   workflowBuilderEditingTemplate: WorkflowTemplate | null;
@@ -224,6 +244,34 @@ interface OoumphContextType {
   simulateNewInboundLead: (data?: Partial<LeadProspect>) => void;
   scheduleMeeting: (meetingData: Omit<ScheduledMeeting, 'id'>) => void;
   cancelMeeting: (meetingId: string) => void;
+
+  // Phase 2C.2B Assignment Composer & Recurring Automation Handlers
+  isAssignmentComposerOpen: boolean;
+  setIsAssignmentComposerOpen: (open: boolean) => void;
+  assignmentComposerTargetEmployeeId: string | null;
+  setAssignmentComposerTargetEmployeeId: (id: string | null) => void;
+  assignmentComposerInitialTask: string | null;
+  setAssignmentComposerInitialTask: (task: string | null) => void;
+  assignmentComposerTargetProjectId: string | null;
+  setAssignmentComposerTargetProjectId: (id: string | null) => void;
+  openAssignmentComposer: (employeeId: string, initialTask?: string, projectId?: string | null) => void;
+  closeAssignmentComposer: () => void;
+
+  isProjectSettingsOpen: boolean;
+  setIsProjectSettingsOpen: (open: boolean) => void;
+  projectSettingsTargetProjectId: string | null;
+  setProjectSettingsTargetProjectId: (id: string | null) => void;
+  openProjectSettings: (projectId: string) => void;
+
+  createRecurringAutomation: (automationData: Omit<RecurringAutomation, 'id' | 'createdAt' | 'updatedAt' | 'occurrencesCompleted'>) => string;
+  updateRecurringAutomation: (automationId: string, updates: Partial<RecurringAutomation>) => void;
+  pauseRecurringAutomation: (automationId: string) => void;
+  resumeRecurringAutomation: (automationId: string) => void;
+  skipNextRecurringRun: (id: string) => void;
+  cancelFutureRuns: (id: string) => void;
+  endProject: (projectId: string) => void;
+  triggerEventDrivenAutomation: (event: AutomationTriggerEvent, payloadSummary?: string) => void;
+  updateWorkDefaults: (defaults: Partial<WorkspaceWorkDefaults>) => void;
 }
 
 const STORAGE_KEY = 'ooumph_app_state_v1';
@@ -234,7 +282,7 @@ export const OoumphProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   // Navigation state
   const [currentView, setCurrentView] = useState<AppView>('team');
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<string | null>(null);
-  const [workTab, setWorkTab] = useState<'projects' | 'tasks' | 'workflows' | 'calendar' | 'assets' | 'results' | 'campaigns'>('projects');
+  const [workTab, setWorkTab] = useState<'projects' | 'tasks' | 'workflows' | 'calendar' | 'assets' | 'results' | 'campaigns' | 'routines'>('projects');
   const [inboxTab, setInboxTab] = useState<'conversations' | 'questions' | 'approvals'>('approvals');
   const [isDemoToolsOpen, setIsDemoToolsOpen] = useState(false);
   const [isFlagshipSimulatorOpen, setIsFlagshipSimulatorOpen] = useState(false);
@@ -259,6 +307,25 @@ export const OoumphProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [isAddTeammateModalOpen, setIsAddTeammateModalOpen] = useState(false);
   const [addTeammateTargetProjectId, setAddTeammateTargetProjectId] = useState<string | null>(null);
   const [demoMode, setDemoModeState] = useState<'seeded' | 'fresh'>('seeded');
+  const [activeEmployeeProjectContext, setActiveEmployeeProjectContext] = useState<{
+    employeeId: string;
+    projectId: string | null;
+    taskId?: string | null;
+  } | null>(null);
+
+  const openEmployeeWorkspaceWithProjectContext = (
+    employeeId: string,
+    projectId: string | null,
+    taskId?: string | null
+  ) => {
+    setActiveEmployeeProjectContext({ employeeId, projectId, taskId });
+    setSelectedEmployeeId(employeeId);
+    setCurrentView('team');
+  };
+
+  const clearEmployeeProjectContext = () => {
+    setActiveEmployeeProjectContext(null);
+  };
 
   // Business state
   const [allWorkspaces, setAllWorkspaces] = useState<Workspace[]>(INITIAL_WORKSPACES);
@@ -290,6 +357,16 @@ export const OoumphProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>(INITIAL_TEAM_MEMBERS);
   const [activityEvents, setActivityEvents] = useState<ActivityEvent[]>(INITIAL_ACTIVITY_EVENTS);
   const [scheduledMeetings, setScheduledMeetings] = useState<ScheduledMeeting[]>(INITIAL_SCHEDULED_MEETINGS);
+  const [recurringAutomations, setRecurringAutomations] = useState<RecurringAutomation[]>(INITIAL_RECURRING_AUTOMATIONS);
+  
+  // Phase 2C.2B Modal states
+  const [isAssignmentComposerOpen, setIsAssignmentComposerOpen] = useState(false);
+  const [assignmentComposerTargetEmployeeId, setAssignmentComposerTargetEmployeeId] = useState<string | null>(null);
+  const [assignmentComposerInitialTask, setAssignmentComposerInitialTask] = useState<string | null>(null);
+  const [assignmentComposerTargetProjectId, setAssignmentComposerTargetProjectId] = useState<string | null>(null);
+  const [isProjectSettingsOpen, setIsProjectSettingsOpen] = useState(false);
+  const [projectSettingsTargetProjectId, setProjectSettingsTargetProjectId] = useState<string | null>(null);
+
   const [simulationLogs, setSimulationLogs] = useState<SimulationLogEvent[]>([
     {
       id: 'log-1',
@@ -326,6 +403,7 @@ export const OoumphProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         if (parsed.teamMembers) setTeamMembers(parsed.teamMembers);
         if (parsed.activityEvents) setActivityEvents(parsed.activityEvents);
         if (parsed.scheduledMeetings) setScheduledMeetings(parsed.scheduledMeetings);
+        if (parsed.recurringAutomations) setRecurringAutomations(parsed.recurringAutomations);
         if (parsed.personalTemplates && Array.isArray(parsed.personalTemplates)) {
           setWorkflowTemplates([
             ...INITIAL_WORKFLOW_TEMPLATES,
@@ -361,6 +439,7 @@ export const OoumphProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         teamMembers,
         activityEvents,
         scheduledMeetings,
+        recurringAutomations,
         personalTemplates: workflowTemplates.filter((t) => t.templateSource === 'personal')
       };
       localStorage.setItem(STORAGE_KEY, JSON.stringify(stateToSave));
@@ -426,9 +505,13 @@ export const OoumphProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     logEvent('System', 'Switched Workspace', `Active client workspace set to ${ws?.name || workspaceId}`, 'info');
   };
 
-  const sendMessage = (employeeId: string, text: string) => {
+  const sendMessage = (employeeId: string, text: string, projectId?: string | null) => {
     const emp = employees.find((e) => e.id === employeeId);
     if (!emp) return;
+
+    const targetProjectId = projectId !== undefined ? projectId : activeEmployeeProjectContext?.projectId;
+    const convKey = targetProjectId ? `${employeeId}__proj_${targetProjectId}` : employeeId;
+    const projectTitle = targetProjectId ? projects.find((p) => p.id === targetProjectId)?.title : undefined;
 
     const userMsg = {
       id: `msg-${Date.now()}`,
@@ -437,8 +520,11 @@ export const OoumphProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       timestamp: new Date().toISOString()
     };
 
-    const currentConv = conversations[employeeId] || {
+    const currentConv = conversations[convKey] || {
+      id: `conv-${convKey}`,
+      workspaceId: activeWorkspaceId,
       employeeId,
+      projectId: targetProjectId || undefined,
       messages: [],
       takeover: false
     };
@@ -447,7 +533,7 @@ export const OoumphProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       // Human takeover is active - automated replies are strictly locked
       setConversations((prev) => ({
         ...prev,
-        [employeeId]: {
+        [convKey]: {
           ...currentConv,
           messages: [
             ...currentConv.messages,
@@ -466,14 +552,18 @@ export const OoumphProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
 
     // Generate intelligent role-based reply
-    let replyText = `I am on it. I have updated the work draft according to "${text}" for ${activeWorkspace.name}. You can review and refine the output in the workspace panel on the right.`;
+    let replyText = targetProjectId
+      ? `Understood. Working on initiative "${projectTitle || 'Project'}". I have updated the work draft according to "${text}". Review the stage deliverables in the Project Flow.`
+      : `I am on it. I have updated the work draft according to "${text}" for ${activeWorkspace.name}. You can review and refine the output in the workspace panel on the right.`;
     let suggestedAction: string | undefined;
 
     if (emp.code === 'A01') {
       replyText = `Understood. I checked your executive calendar and verified buffers for ${activeWorkspace.name}. I drafted the follow-up correspondence and added it to your pending queue.`;
       suggestedAction = 'View updated calendar';
     } else if (emp.code === 'A02') {
-      replyText = `Great suggestion! I adapted the headline and hook to follow our brand guidelines ("${activeWorkspace.brandTone}"). The revised post is scheduled in your content queue.`;
+      replyText = targetProjectId
+        ? `Great suggestion! I adapted the copy for project "${projectTitle || 'Initiative'}" to follow our brand guidelines. Output is staged for review.`
+        : `Great suggestion! I adapted the headline and hook to follow our brand guidelines ("${activeWorkspace.brandTone}"). The revised post is scheduled in your content queue.`;
       suggestedAction = 'Review scheduled post';
     } else if (emp.code === 'A04') {
       replyText = `Prospect research updated. I applied ICP filters for ${activeWorkspace.industry} and flagged duplicate domains against existing CRM records.`;
@@ -502,7 +592,7 @@ export const OoumphProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
     setConversations((prev) => ({
       ...prev,
-      [employeeId]: {
+      [convKey]: {
         ...currentConv,
         messages: [...currentConv.messages, userMsg, botMsg]
       }
@@ -511,10 +601,16 @@ export const OoumphProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     logEvent(emp.name, 'Task Delegated', `User instruction processed: "${text.substring(0, 45)}..."`, 'success');
   };
 
-  const toggleTakeover = (employeeId: string) => {
+  const toggleTakeover = (employeeId: string, projectId?: string | null) => {
     const emp = employees.find((e) => e.id === employeeId);
-    const currentConv = conversations[employeeId] || {
+    const targetProjectId = projectId !== undefined ? projectId : activeEmployeeProjectContext?.projectId;
+    const convKey = targetProjectId ? `${employeeId}__proj_${targetProjectId}` : employeeId;
+
+    const currentConv = conversations[convKey] || {
+      id: `conv-${convKey}`,
+      workspaceId: activeWorkspaceId,
       employeeId,
+      projectId: targetProjectId || undefined,
       messages: [],
       takeover: false
     };
@@ -522,7 +618,7 @@ export const OoumphProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
     setConversations((prev) => ({
       ...prev,
-      [employeeId]: {
+      [convKey]: {
         ...currentConv,
         takeover: nextState
       }
@@ -538,10 +634,35 @@ export const OoumphProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     );
   };
 
+  const addProjectActivity = (
+    projectId: string,
+    event: {
+      actorName: string;
+      actorType: 'employee' | 'human' | 'system';
+      action: string;
+      details: string;
+      category?: 'work' | 'approval' | 'handoff' | 'system';
+    }
+  ) => {
+    const newAct: ActivityEvent = {
+      id: `act-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+      workspaceId: activeWorkspaceId,
+      projectId,
+      actorName: event.actorName,
+      actorType: event.actorType,
+      action: event.action,
+      details: event.details,
+      timestamp: new Date().toISOString(),
+      category: event.category || 'work'
+    };
+    setActivityEvents((prev) => [newAct, ...prev]);
+  };
+
   const approveRequest = (approvalId: string) => {
     const target = approvals.find((a) => a.id === approvalId);
     if (!target) return;
 
+    // 1. Update the EXACT approval request
     setApprovals((prev) =>
       prev.map((a) =>
         a.id === approvalId
@@ -550,14 +671,31 @@ export const OoumphProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       )
     );
 
-    // If it corresponds to a task, update task status
+    // 2. Update EXACT matching project task
     setTasks((prev) =>
-      prev.map((t) =>
-        t.employeeId === target.employeeId && t.status === 'needs_review'
-          ? { ...t, status: 'approved' }
-          : t
-      )
+      prev.map((t) => {
+        const isExactMatch =
+          (target.workflowStepId && t.workflowStepId === target.workflowStepId) ||
+          (target.projectId && t.projectId === target.projectId && t.employeeId === target.employeeId && t.status === 'needs_review');
+        return isExactMatch ? { ...t, status: 'completed' as const } : t;
+      })
     );
+
+    // 3. Resume / advance the same run
+    if (target.workflowRunId && target.workflowStepId) {
+      advanceWorkflowStep(target.workflowRunId, target.workflowStepId);
+    }
+
+    // 4. Log project-scoped Activity Event
+    if (target.projectId) {
+      addProjectActivity(target.projectId, {
+        actorName: 'Human Approver',
+        actorType: 'human',
+        action: 'Approval Signoff Granted',
+        details: `Approved deliverable "${target.title}". Stage execution resumed.`,
+        category: 'approval'
+      });
+    }
 
     logEvent(
       target.employeeName,
@@ -580,12 +718,39 @@ export const OoumphProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     );
 
     setTasks((prev) =>
-      prev.map((t) =>
-        t.employeeId === target.employeeId && t.status === 'needs_review'
-          ? { ...t, status: 'paused' }
-          : t
-      )
+      prev.map((t) => {
+        const isExactMatch =
+          (target.workflowStepId && t.workflowStepId === target.workflowStepId) ||
+          (target.projectId && t.projectId === target.projectId && t.employeeId === target.employeeId && t.status === 'needs_review');
+        return isExactMatch ? { ...t, status: 'paused' as const } : t;
+      })
     );
+
+    if (target.workflowRunId && target.workflowStepId) {
+      setWorkflowRuns((prev) =>
+        prev.map((r) => {
+          if (r.id !== target.workflowRunId) return r;
+          return {
+            ...r,
+            steps: r.steps.map((s) =>
+              s.id === target.workflowStepId
+                ? { ...s, status: 'blocked' as const, blockedReason: 'Signoff rejected by operator.' }
+                : s
+            )
+          };
+        })
+      );
+    }
+
+    if (target.projectId) {
+      addProjectActivity(target.projectId, {
+        actorName: 'Human Approver',
+        actorType: 'human',
+        action: 'Approval Rejected',
+        details: `Rejected deliverable "${target.title}". Proposed action paused.`,
+        category: 'approval'
+      });
+    }
 
     logEvent(
       target.employeeName,
@@ -615,19 +780,23 @@ export const OoumphProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     );
 
     setTasks((prev) =>
-      prev.map((t) =>
-        t.employeeId === target.employeeId && (t.status === 'needs_review' || t.projectId === target.projectId)
+      prev.map((t) => {
+        const isExactMatch =
+          (target.workflowStepId && t.workflowStepId === target.workflowStepId) ||
+          (target.projectId && t.projectId === target.projectId && t.employeeId === target.employeeId && (t.status === 'needs_review' || t.status === 'in_progress'));
+        return isExactMatch
           ? {
               ...t,
               status: 'in_progress' as const,
               revisionNote: trimmedFeedback,
+              version: t.version + 1,
               description: `${t.description} (Revision: ${trimmedFeedback})`
             }
-          : t
-      )
+          : t;
+      })
     );
 
-    // Update workflow run step status to changes_requested
+    // Update exact workflow run step status to changes_requested
     if (target.workflowRunId) {
       setWorkflowRuns((prev) =>
         prev.map((r) => {
@@ -655,13 +824,22 @@ export const OoumphProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           };
         })
       );
+
+      addProjectActivity(target.projectId, {
+        actorName: 'Human Approver',
+        actorType: 'human',
+        action: 'Revision Requested',
+        details: `Requested revision on "${target.title}": "${trimmedFeedback.slice(0, 75)}"`,
+        category: 'approval'
+      });
     }
 
     // Also send feedback directly into the employee conversation so they see it
     if (target.employeeId) {
       sendMessage(
         target.employeeId,
-        `[Feedback on Approval "${target.title}"]: ${trimmedFeedback}`
+        `[Feedback on Approval "${target.title}"]: ${trimmedFeedback}`,
+        target.projectId
       );
     }
 
@@ -972,10 +1150,73 @@ export const OoumphProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
   const advanceScenarioDays = (days: number) => {
+    // 1. Advance eligible recurring automations in active workspace
+    setRecurringAutomations((prev) =>
+      prev.map((auto) => {
+        if (auto.workspaceId !== activeWorkspaceId || auto.status !== 'active') return auto;
+        
+        const newOccurrences = auto.occurrencesCompleted + 1;
+        const now = new Date();
+        const nextDate = new Date(now.getTime() + 7 * 86400000).toISOString();
+        
+        logEvent(
+          'Scheduler Simulation',
+          'Automated Routine Fired',
+          `Routine "${auto.title}" triggered occurrence #${newOccurrences}. Outputs generated: "${auto.expectedOutput}".`,
+          'success'
+        );
+
+        if (auto.projectId) {
+          addProjectActivity(auto.projectId, {
+            actorName: 'Scheduler Simulation',
+            actorType: 'system',
+            action: 'Recurring Routine Executed',
+            details: `Automated cycle completed: "${auto.title}". Deliverables: "${auto.expectedOutput}".`,
+            category: 'work'
+          });
+        }
+
+        return {
+          ...auto,
+          occurrencesCompleted: newOccurrences,
+          lastRunDate: new Date().toISOString(),
+          lastRunStatus: 'completed',
+          lastRunOutputSummary: `Produced cycle deliverables for "${auto.expectedOutput}"`,
+          nextRunDate: nextDate,
+          updatedAt: new Date().toISOString()
+        };
+      })
+    );
+
+    // 2. Advance recurring projects in active workspace
+    setProjects((prev) =>
+      prev.map((proj) => {
+        if (proj.workspaceId !== activeWorkspaceId || proj.status !== 'in_progress') return proj;
+        if (proj.cadenceType === 'weekly' || proj.projectType === 'RECURRING_PROGRAMME') {
+          const runCount = (proj.runHistory?.length || 0) + 1;
+          const newHistItem = {
+            id: `run-hist-${Date.now()}`,
+            runNumber: runCount,
+            date: new Date().toISOString().split('T')[0],
+            status: 'completed' as const,
+            outputCount: Math.floor(Math.random() * 3) + 3,
+            runLabel: `Run #${runCount} — Cycle ${new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`,
+            summary: `Automated weekly execution completed. Deliverables published to workspace.`
+          };
+          return {
+            ...proj,
+            runHistory: [newHistItem, ...(proj.runHistory || [])],
+            updatedAt: new Date().toISOString()
+          };
+        }
+        return proj;
+      })
+    );
+
     logEvent(
       'Demo Engine',
       `Scenario Advanced (+${days} Days)`,
-      `Simulated time passage by ${days} day(s). Organic metrics and schedule updated.`,
+      `Simulated time passage by ${days} day(s). Scheduled automations, recurring projects, and task cadences advanced.`,
       'info'
     );
   };
@@ -986,11 +1227,13 @@ export const OoumphProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       setTasks([]);
       setApprovals([]);
       setLeads([]);
+      setRecurringAutomations([]);
       logEvent('Demo Engine', 'Fresh Workspace Mode Activated', 'Cleared historical sample data for a pristine user start.', 'info');
     } else {
       setTasks(INITIAL_TASKS);
       setApprovals(INITIAL_APPROVALS);
       setLeads(INITIAL_LEADS);
+      setRecurringAutomations(INITIAL_RECURRING_AUTOMATIONS);
       logEvent('Demo Engine', 'Seeded Demo Mode Restored', 'Populated workspace with complete reference sample data.', 'info');
     }
   };
@@ -1015,6 +1258,7 @@ export const OoumphProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     setTeamMembers(INITIAL_TEAM_MEMBERS);
     setActivityEvents(INITIAL_ACTIVITY_EVENTS);
     setScheduledMeetings(INITIAL_SCHEDULED_MEETINGS);
+    setRecurringAutomations(INITIAL_RECURRING_AUTOMATIONS);
     setSimulationLogs([
       {
         id: `log-${Date.now()}`,
@@ -1094,7 +1338,11 @@ export const OoumphProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         completedStepToProcess = run.steps[stepIndex];
 
         const updatedSteps = [...run.steps];
-        updatedSteps[stepIndex] = { ...updatedSteps[stepIndex], status: 'completed' as const };
+        updatedSteps[stepIndex] = {
+          ...updatedSteps[stepIndex],
+          status: 'completed' as const,
+          completedAt: new Date().toISOString()
+        };
 
         let nextIndex = stepIndex + 1;
         let nextStatus: WorkflowRun['status'] = run.status;
@@ -1127,17 +1375,26 @@ export const OoumphProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             updatedSteps[nextIndex] = {
               ...nextStep,
               status: 'blocked' as const,
-              blockedReason: blockerReason
+              blockedReason: blockerReason,
+              startedAt: new Date().toISOString()
             };
           } else if (nextStep.type === 'human_approval') {
             updatedSteps[nextIndex] = {
               ...nextStep,
-              status: 'waiting_approval' as const
+              status: 'waiting_approval' as const,
+              startedAt: new Date().toISOString()
+            };
+          } else if (nextStep.type === 'wait_schedule') {
+            updatedSteps[nextIndex] = {
+              ...nextStep,
+              status: 'in_progress' as const,
+              startedAt: new Date().toISOString()
             };
           } else {
             updatedSteps[nextIndex] = {
               ...nextStep,
-              status: 'in_progress' as const
+              status: 'in_progress' as const,
+              startedAt: new Date().toISOString()
             };
           }
         } else {
@@ -1162,11 +1419,32 @@ export const OoumphProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       })
     );
 
-    // Update project with asset generation, handoffs, and stage progression
+    // Synchronize tasks & generate project assets & record activity
     if (completedStepToProcess && associatedProjectId) {
       const completedStep = completedStepToProcess as WorkflowStep;
       const targetEmp = employees.find((e) => e.code === completedStep.employeeCode);
+      const nextStep = nextStepToProcess as WorkflowStep | null;
 
+      // 1. Synchronize tasks for completed step and next step
+      setTasks((prev) =>
+        prev.map((t) => {
+          if (t.workflowStepId === completedStep.id) {
+            return { ...t, status: 'completed' as const };
+          }
+          if (nextStep && t.workflowStepId === nextStep.id) {
+            if (nextStep.status === 'blocked') {
+              return { ...t, status: 'paused' as const };
+            }
+            if (nextStep.status === 'waiting_approval') {
+              return { ...t, status: 'needs_review' as const };
+            }
+            return { ...t, status: 'in_progress' as const };
+          }
+          return t;
+        })
+      );
+
+      // 2. Generate scoped project asset with full lineage contract
       const assetType = completedStep.title.toLowerCase().includes('copy') ? 'ad_creative' :
         completedStep.title.toLowerCase().includes('page') || completedStep.title.toLowerCase().includes('site') ? 'web_page' :
         completedStep.title.toLowerCase().includes('video') ? 'video_script' :
@@ -1175,23 +1453,31 @@ export const OoumphProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       const newAsset: ProjectAsset = {
         id: `asset-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
         projectId: associatedProjectId,
-        title: `${completedStep.title} Deliverable`,
+        title: completedStep.expectedOutput || `${completedStep.title} Deliverable`,
         type: assetType as any,
-        employeeCode: completedStep.employeeCode || 'A01',
-        employeeName: targetEmp?.name || 'Specialist',
+        employeeCode: completedStep.employeeCode || (completedStep.type === 'human_task' ? 'HUMAN' : 'A01'),
+        employeeName: targetEmp?.name || (completedStep.type === 'human_task' ? 'Workspace Operator' : 'Specialist'),
         createdAt: new Date().toISOString(),
         status: 'approved',
-        content: `Final verified deliverable for "${completedStep.title}". Generated autonomously with full parameter alignment.`
+        stepId: completedStep.id,
+        workflowRunId: runId,
+        version: 1,
+        producedByEmployeeCode: completedStep.employeeCode || 'SYS',
+        usedByEmployeeCode: nextStep?.employeeCode,
+        usedByStepTitle: nextStep?.title,
+        sourceType: 'project',
+        content: `Verified deliverable for "${completedStep.title}". Generated autonomously with full parameter alignment.`
       };
 
-      const nextStep = nextStepToProcess as WorkflowStep | null;
+      // 3. Log handoff if transitioning between employees
       const handoffObj = nextStep ? {
-        fromCode: completedStep.employeeCode || 'SYS',
-        toCode: nextStep.employeeCode || 'SYS',
-        message: `${completedStep.title} completed, handed off to ${nextStep.employeeCode} for ${nextStep.title}`,
+        fromCode: completedStep.employeeCode || (completedStep.type === 'human_task' ? 'HUMAN' : 'SYS'),
+        toCode: nextStep.employeeCode || (nextStep.type === 'human_task' ? 'HUMAN' : 'SYS'),
+        message: `${completedStep.title} completed, handed off to ${nextStep.employeeCode || 'next stage'} for ${nextStep.title}`,
         timestamp: new Date().toISOString()
       } : undefined;
 
+      // 4. Update project state
       setProjects((prev) =>
         prev.map((p) => {
           if (p.id !== associatedProjectId) return p;
@@ -1210,14 +1496,18 @@ export const OoumphProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             nextImportantAction: nextStep
               ? nextStep.type === 'human_approval'
                 ? `Review pending approval gate: "${nextStep.title}"`
+                : nextStep.type === 'human_task'
+                ? `Action needed: Complete human task "${nextStep.title}"`
+                : nextStep.type === 'wait_schedule'
+                ? `Waiting for scheduled trigger event: "${nextStep.title}"`
                 : nextStep.status === 'blocked'
                 ? `Action needed: ${nextStep.blockedReason || 'Connection required before stage can run.'}`
-                : `Active: ${nextStep.employeeCode} executing "${nextStep.title}"`
+                : `Active: ${nextStep.employeeCode || 'Specialist'} executing "${nextStep.title}"`
               : hasUpcoming
               ? `Phase ${((p.currentWorkflowIndex || 0) + 1)} Complete · Click Prepare Next Phase to advance.`
               : 'Project completed successfully. All deliverables archived.',
             progressSummary: nextStep
-              ? `Milestone completed. Handoff to ${nextStep.employeeCode} for "${nextStep.title}".`
+              ? `Milestone completed. Handoff to ${nextStep.employeeCode || 'next stage'} for "${nextStep.title}".`
               : hasUpcoming
               ? `Phase ${((p.currentWorkflowIndex || 0) + 1)} delivered. Intermediate outputs staged for next phase.`
               : 'All project milestones completed successfully.'
@@ -1225,7 +1515,26 @@ export const OoumphProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         })
       );
 
-      // If next step is waiting_approval, generate the ApprovalRequest
+      // 5. Activity Logging
+      addProjectActivity(associatedProjectId, {
+        actorName: targetEmp?.name || (completedStep.type === 'human_task' ? 'Workspace Operator' : 'Workflow Specialist'),
+        actorType: completedStep.type === 'human_task' ? 'human' : 'employee',
+        action: 'Stage Deliverable Completed',
+        details: `Completed "${completedStep.title}". Output: "${newAsset.title}".`,
+        category: 'work'
+      });
+
+      if (handoffObj) {
+        addProjectActivity(associatedProjectId, {
+          actorName: 'Coordinator',
+          actorType: 'system',
+          action: 'Stage Handoff',
+          details: handoffObj.message,
+          category: 'handoff'
+        });
+      }
+
+      // 6. If next step is waiting_approval, generate the ApprovalRequest
       if (nextStep && nextStep.type === 'human_approval') {
         const reqId = `appr-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`;
         const nextEmp = employees.find((e) => e.code === nextStep.employeeCode);
@@ -1248,8 +1557,177 @@ export const OoumphProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           contextNote: 'Human oversight gate reached. Approval required before proceeding.'
         };
         setApprovals((prev) => [newAppr, ...prev]);
+
+        addProjectActivity(associatedProjectId, {
+          actorName: 'Governance Engine',
+          actorType: 'system',
+          action: 'Approval Gate Activated',
+          details: `Signoff required for "${nextStep.title}" before downstream stages execute.`,
+          category: 'approval'
+        });
       }
     }
+  };
+
+  const completeHumanTask = (projectId: string, stepId: string, notes?: string) => {
+    const run = workflowRuns.find((r) => r.projectId === projectId);
+    if (!run) return;
+    const step = run.steps.find((s) => s.id === stepId);
+    if (!step) return;
+
+    addProjectActivity(projectId, {
+      actorName: 'Workspace Operator',
+      actorType: 'human',
+      action: 'Human Task Completed',
+      details: notes || `Completed human task "${step.title}".`,
+      category: 'work'
+    });
+
+    advanceWorkflowStep(run.id, stepId);
+  };
+
+  const advanceWaitStep = (projectId: string, stepId: string) => {
+    const run = workflowRuns.find((r) => r.projectId === projectId);
+    if (!run) return;
+    const step = run.steps.find((s) => s.id === stepId);
+    if (!step) return;
+
+    addProjectActivity(projectId, {
+      actorName: 'Scheduler Simulation',
+      actorType: 'system',
+      action: 'Scheduled Trigger Fired',
+      details: `Scheduled event triggered for "${step.title}". Advancing workflow.`,
+      category: 'work'
+    });
+
+    advanceWorkflowStep(run.id, stepId);
+  };
+
+  const evaluateConditionStep = (projectId: string, stepId: string, forceBranch?: 'then' | 'else') => {
+    const run = workflowRuns.find((r) => r.projectId === projectId);
+    if (!run) return;
+    const step = run.steps.find((s) => s.id === stepId);
+    if (!step) return;
+
+    const branch = forceBranch || 'then';
+    addProjectActivity(projectId, {
+      actorName: 'Condition Engine',
+      actorType: 'system',
+      action: 'Condition Evaluated',
+      details: `Evaluated "${step.title}" -> Taking ${branch.toUpperCase()} branch.`,
+      category: 'work'
+    });
+
+    advanceWorkflowStep(run.id, stepId);
+  };
+
+  const pauseProject = (projectId: string) => {
+    setProjects((prev) =>
+      prev.map((p) => (p.id === projectId ? { ...p, status: 'paused', updatedAt: new Date().toISOString() } : p))
+    );
+    setWorkflowRuns((prev) =>
+      prev.map((r) => (r.projectId === projectId ? { ...r, status: 'paused' } : r))
+    );
+    addProjectActivity(projectId, {
+      actorName: 'Workspace Operator',
+      actorType: 'human',
+      action: 'Project Paused',
+      details: 'All automated dispatches and stage progressions paused.',
+      category: 'system'
+    });
+  };
+
+  const resumeProject = (projectId: string) => {
+    setProjects((prev) =>
+      prev.map((p) => (p.id === projectId ? { ...p, status: 'in_progress', updatedAt: new Date().toISOString() } : p))
+    );
+    setWorkflowRuns((prev) =>
+      prev.map((r) => (r.projectId === projectId ? { ...r, status: 'running' } : r))
+    );
+    addProjectActivity(projectId, {
+      actorName: 'Workspace Operator',
+      actorType: 'human',
+      action: 'Project Resumed',
+      details: 'Automated stage execution resumed.',
+      category: 'system'
+    });
+  };
+
+  const duplicateProject = (projectId: string): string => {
+    const original = projects.find((p) => p.id === projectId);
+    if (!original) return '';
+    const newProjectId = `proj-${Date.now()}`;
+    const newRunId = `run-${Date.now()}`;
+    const origRun = workflowRuns.find((r) => r.id === original.workflowRunId);
+
+    const clonedSteps: WorkflowStep[] = (origRun?.steps || []).map((s, idx) => ({
+      ...s,
+      id: `step-${newRunId}-${idx + 1}`,
+      status: 'pending' as const,
+      startedAt: undefined,
+      completedAt: undefined
+    }));
+
+    const clonedRun: WorkflowRun = {
+      id: newRunId,
+      workspaceId: original.workspaceId,
+      templateId: origRun?.templateId || 'wf-01',
+      templateName: origRun?.templateName || original.title,
+      title: `${original.title} (Copy) Run`,
+      status: 'ready_to_start',
+      projectId: newProjectId,
+      currentStepIndex: 0,
+      steps: clonedSteps,
+      startedAt: new Date().toISOString()
+    };
+
+    const clonedProject: Project = {
+      ...original,
+      id: newProjectId,
+      title: `${original.title} (Copy)`,
+      status: 'ready',
+      workflowRunId: newRunId,
+      projectAssets: [],
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      nextImportantAction: 'Ready to Start · Click Start Project to begin specialist work.'
+    };
+
+    setWorkflowRuns((prev) => [clonedRun, ...prev]);
+    setProjects((prev) => [clonedProject, ...prev]);
+    setSelectedProjectId(newProjectId);
+
+    addProjectActivity(newProjectId, {
+      actorName: 'Workspace Operator',
+      actorType: 'human',
+      action: 'Project Duplicated',
+      details: `Cloned from "${original.title}". Ready to execute.`,
+      category: 'system'
+    });
+
+    return newProjectId;
+  };
+
+  const archiveProject = (projectId: string) => {
+    setProjects((prev) =>
+      prev.map((p) =>
+        p.id === projectId
+          ? {
+              ...p,
+              tags: Array.from(new Set([...(p.tags || []), 'Archived'])),
+              status: 'paused',
+              updatedAt: new Date().toISOString()
+            }
+          : p
+      )
+    );
+    addProjectActivity(projectId, {
+      actorName: 'Workspace Operator',
+      actorType: 'human',
+      action: 'Project Archived',
+      details: 'Project archived from active execution queue.',
+      category: 'system'
+    });
   };
 
   const advanceWorkflowPhase = (projectId: string) => {
@@ -1687,6 +2165,14 @@ export const OoumphProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     });
 
     const targetProject = projects.find((p) => p.id === projectId);
+    addProjectActivity(projectId, {
+      actorName: 'Initiative Lead',
+      actorType: 'human',
+      action: 'Project Started',
+      details: `Execution officially initiated for "${targetProject?.title || projectId}". Specialists activated.`,
+      category: 'work'
+    });
+
     logEvent(
       'Initiative Lead',
       'Project Started',
@@ -1718,8 +2204,8 @@ export const OoumphProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     return newApprId;
   };
 
-  const createWorkflowRun = (runData: Omit<WorkflowRun, 'id'>): string => {
-    const newRunId = `run-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`;
+  const createWorkflowRun = (runData: Omit<WorkflowRun, 'id'> & { id?: string }): string => {
+    const newRunId = runData.id || `run-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`;
     const newRun: WorkflowRun = {
       ...runData,
       id: newRunId
@@ -2162,6 +2648,236 @@ export const OoumphProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     logEvent('Aria Vance (A01)', 'Meeting Slot Freed', `Cancelled meeting #${meetingId}. Calendar buffer restored.`, 'info');
   };
 
+  // Phase 2C.2B Assignment Composer & Recurring Automation Handlers
+  const openAssignmentComposer = (employeeId: string, initialTask?: string, projectId?: string | null) => {
+    setAssignmentComposerTargetEmployeeId(employeeId);
+    setAssignmentComposerInitialTask(initialTask || null);
+    setAssignmentComposerTargetProjectId(projectId || null);
+    setIsAssignmentComposerOpen(true);
+  };
+
+  const closeAssignmentComposer = () => {
+    setIsAssignmentComposerOpen(false);
+    setAssignmentComposerTargetEmployeeId(null);
+    setAssignmentComposerInitialTask(null);
+    setAssignmentComposerTargetProjectId(null);
+  };
+
+  const openProjectSettings = (projectId: string) => {
+    setProjectSettingsTargetProjectId(projectId);
+    setIsProjectSettingsOpen(true);
+  };
+
+  const createRecurringAutomation = (
+    automationData: Omit<RecurringAutomation, 'id' | 'createdAt' | 'updatedAt' | 'occurrencesCompleted'>
+  ): string => {
+    const newId = `auto-${Date.now()}`;
+    const newAuto: RecurringAutomation = {
+      ...automationData,
+      id: newId,
+      occurrencesCompleted: 0,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+    setRecurringAutomations((prev) => [newAuto, ...prev]);
+    logEvent(
+      'Operator',
+      'Automation Activated',
+      `Activated routine "${newAuto.title}" (${newAuto.cadenceType}). Scheduled next run: ${newAuto.nextRunDate || 'Pending'}.`,
+      'success'
+    );
+    if (newAuto.projectId) {
+      addProjectActivity(newAuto.projectId, {
+        actorName: 'Operator',
+        actorType: 'human',
+        action: 'Recurring Routine Activated',
+        details: `Configured routine "${newAuto.title}" with cadence ${newAuto.cadenceType}.`,
+        category: 'system'
+      });
+    }
+    return newId;
+  };
+
+  const updateRecurringAutomation = (
+    automationId: string,
+    updates: Partial<RecurringAutomation>
+  ) => {
+    setRecurringAutomations((prev) =>
+      prev.map((a) => (a.id === automationId ? { ...a, ...updates, updatedAt: new Date().toISOString() } : a))
+    );
+    logEvent('Operator', 'Automation Schedule Updated', 'Changes apply to future runs. Existing completed work remains intact.', 'info');
+  };
+
+  const pauseRecurringAutomation = (automationId: string) => {
+    setRecurringAutomations((prev) =>
+      prev.map((a) => (a.id === automationId ? { ...a, status: 'paused', pausedSince: new Date().toISOString(), updatedAt: new Date().toISOString() } : a))
+    );
+    logEvent('Operator', 'Automation Paused', 'Future runs paused. Completed history intact.', 'warning');
+  };
+
+  const resumeRecurringAutomation = (automationId: string) => {
+    setRecurringAutomations((prev) =>
+      prev.map((a) => (a.id === automationId ? { ...a, status: 'active', pausedSince: undefined, updatedAt: new Date().toISOString() } : a))
+    );
+    logEvent('Operator', 'Automation Resumed', 'Automated schedule active.', 'success');
+  };
+
+  const skipNextRecurringRun = (id: string) => {
+    setRecurringAutomations((prev) =>
+      prev.map((a) => {
+        if (a.id !== id && a.projectId !== id) return a;
+        const currentNext = a.nextRunDate ? new Date(a.nextRunDate) : new Date();
+        const daysToAdd = a.cadenceType === 'daily' ? 1 : a.cadenceType === 'weekdays' ? (currentNext.getDay() === 5 ? 3 : 1) : 7;
+        const newNext = new Date(currentNext.getTime() + daysToAdd * 86400000).toISOString();
+        return {
+          ...a,
+          nextRunDate: newNext,
+          lastRunStatus: 'skipped',
+          lastRunOutputSummary: 'Skipped by user',
+          updatedAt: new Date().toISOString()
+        };
+      })
+    );
+
+    setProjects((prev) =>
+      prev.map((p) => {
+        if (p.id !== id) return p;
+        const skippedRunItem = {
+          id: `run-hist-${Date.now()}`,
+          runNumber: (p.runHistory?.length || 0) + 1,
+          date: new Date().toISOString().split('T')[0],
+          status: 'skipped' as const,
+          outputCount: 0,
+          runLabel: `Skipped Occurrence — ${new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`,
+          summary: 'Skipped by user. Next run rescheduled.'
+        };
+        const currentNext = p.scheduleDetails?.nextRunDate ? new Date(p.scheduleDetails.nextRunDate) : new Date();
+        const newNext = new Date(currentNext.getTime() + 7 * 86400000).toISOString();
+        return {
+          ...p,
+          scheduleDetails: {
+            ...p.scheduleDetails,
+            nextRunDate: newNext,
+            lastRunDate: new Date().toISOString()
+          },
+          runHistory: [skippedRunItem, ...(p.runHistory || [])],
+          updatedAt: new Date().toISOString()
+        };
+      })
+    );
+
+    logEvent('Operator', 'Next Occurrence Skipped', 'Occurrence marked "Skipped by user". Next run updated.', 'info');
+  };
+
+  const cancelFutureRuns = (id: string) => {
+    setRecurringAutomations((prev) =>
+      prev.map((a) => {
+        if (a.id !== id && a.projectId !== id) return a;
+        return {
+          ...a,
+          status: 'ended',
+          nextRunDate: undefined,
+          updatedAt: new Date().toISOString()
+        };
+      })
+    );
+
+    setProjects((prev) =>
+      prev.map((p) => {
+        if (p.id !== id) return p;
+        return {
+          ...p,
+          endRule: 'specific_date',
+          endDate: new Date().toISOString(),
+          scheduleDetails: {
+            ...p.scheduleDetails,
+            nextRunDate: undefined
+          },
+          updatedAt: new Date().toISOString()
+        };
+      })
+    );
+
+    logEvent('Operator', 'Future Runs Cancelled', 'All future occurrences cancelled. Completed history and deliverables preserved.', 'warning');
+  };
+
+  const endProject = (projectId: string) => {
+    cancelFutureRuns(projectId);
+    setProjects((prev) =>
+      prev.map((p) => (p.id === projectId ? { ...p, status: 'completed', isOngoing: false, updatedAt: new Date().toISOString() } : p))
+    );
+    setWorkflowRuns((prev) =>
+      prev.map((r) => (r.projectId === projectId ? { ...r, status: 'completed' } : r))
+    );
+    addProjectActivity(projectId, {
+      actorName: 'Operator',
+      actorType: 'human',
+      action: 'Project Ended',
+      details: 'Project execution ended permanently. Future scheduled runs cancelled. All outputs and results preserved.',
+      category: 'system'
+    });
+    logEvent('Operator', 'Project Ended', 'Future runs cancelled. Completed work, outputs, and metrics remain intact.', 'info');
+  };
+
+  const triggerEventDrivenAutomation = (event: AutomationTriggerEvent, payloadSummary?: string) => {
+    const matching = recurringAutomations.find(
+      (a) => a.workspaceId === activeWorkspaceId && a.cadenceType === 'event_driven' && a.scheduleDetails.triggerEvent === event && a.status === 'active'
+    );
+
+    if (matching) {
+      const summary = payloadSummary || `Simulated event "${event}" received.`;
+      setRecurringAutomations((prev) =>
+        prev.map((a) =>
+          a.id === matching.id
+            ? {
+                ...a,
+                occurrencesCompleted: a.occurrencesCompleted + 1,
+                lastRunDate: new Date().toISOString(),
+                lastRunStatus: 'completed',
+                lastRunOutputSummary: summary,
+                updatedAt: new Date().toISOString()
+              }
+            : a
+        )
+      );
+
+      if (matching.projectId) {
+        addProjectActivity(matching.projectId, {
+          actorName: 'Event Engine (Simulation)',
+          actorType: 'system',
+          action: 'Event Trigger Fired',
+          details: `Event "${event}" processed. Routine "${matching.title}" completed response.`,
+          category: 'work'
+        });
+      }
+
+      logEvent('Event Simulation', 'Event Routine Fired', `Routine "${matching.title}" executed for event "${event}".`, 'success');
+    }
+  };
+
+  const updateWorkDefaults = (defaults: Partial<WorkspaceWorkDefaults>) => {
+    setSettings((prev) => ({
+      ...prev,
+      workDefaults: {
+        ...(prev.workDefaults || {
+          defaultTimezone: 'America/New_York (EST)',
+          defaultWorkingDays: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'],
+          defaultWorkingHours: '09:00 - 18:00 EST',
+          defaultApprovalMode: 'review_before_external',
+          defaultProjectOwnerId: 'tm-1',
+          defaultProjectApproverId: 'tm-1',
+          notifyOnRecurringRunComplete: true,
+          notifyOnHumanTaskAssigned: true,
+          notifyOnApprovalRequired: true,
+          notifyOnProjectBlocked: true,
+          notifyOnConnectionFailure: true
+        }),
+        ...defaults
+      }
+    }));
+    logEvent('Business Owner', 'Work Defaults Updated', 'Workspace operational cadence, working hours, and notification rules saved.', 'success');
+  };
+
   return (
     <OoumphContext.Provider
       value={{
@@ -2183,6 +2899,7 @@ export const OoumphProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         employeeChooserInitialTask,
         selectedProjectId,
         demoMode,
+        activeWorkspaceId,
         activeWorkspace,
         allWorkspaces,
         employees,
@@ -2294,6 +3011,17 @@ export const OoumphProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         restoreWorkflowTemplate,
         deleteCustomWorkflowTemplate,
         saveProjectAsWorkflowTemplate,
+        pauseProject,
+        resumeProject,
+        duplicateProject,
+        archiveProject,
+        completeHumanTask,
+        advanceWaitStep,
+        evaluateConditionStep,
+        addProjectActivity,
+        activeEmployeeProjectContext,
+        openEmployeeWorkspaceWithProjectContext,
+        clearEmployeeProjectContext,
         isIntegrationConnectModalOpen,
         setIsIntegrationConnectModalOpen,
         connectingProvider,
@@ -2317,7 +3045,32 @@ export const OoumphProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         updateDealStage,
         simulateNewInboundLead,
         scheduleMeeting,
-        cancelMeeting
+        cancelMeeting,
+        recurringAutomations,
+        isAssignmentComposerOpen,
+        setIsAssignmentComposerOpen,
+        assignmentComposerTargetEmployeeId,
+        setAssignmentComposerTargetEmployeeId,
+        assignmentComposerInitialTask,
+        setAssignmentComposerInitialTask,
+        assignmentComposerTargetProjectId,
+        setAssignmentComposerTargetProjectId,
+        openAssignmentComposer,
+        closeAssignmentComposer,
+        isProjectSettingsOpen,
+        setIsProjectSettingsOpen,
+        projectSettingsTargetProjectId,
+        setProjectSettingsTargetProjectId,
+        openProjectSettings,
+        createRecurringAutomation,
+        updateRecurringAutomation,
+        pauseRecurringAutomation,
+        resumeRecurringAutomation,
+        skipNextRecurringRun,
+        cancelFutureRuns,
+        endProject,
+        triggerEventDrivenAutomation,
+        updateWorkDefaults
       }}
     >
       {children}

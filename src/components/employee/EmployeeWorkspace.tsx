@@ -15,7 +15,13 @@ import {
   RotateCcw,
   Plug,
   AlertTriangle,
-  ExternalLink
+  ExternalLink,
+  Layers,
+  ArrowRight,
+  Clock,
+  ShieldCheck,
+  Check,
+  Plus
 } from 'lucide-react';
 import { EMPLOYEE_INTEGRATION_MAP, PROVIDER_CATALOG } from '../../data/integrationDirectory';
 
@@ -33,11 +39,43 @@ export const EmployeeWorkspace: React.FC<EmployeeWorkspaceProps> = ({ employee }
     activeWorkspace,
     integrationConnections,
     openIntegrationDetail,
-    openConnectIntegration
+    openConnectIntegration,
+    projects,
+    tasks,
+    workflowRuns,
+    activeEmployeeProjectContext,
+    setSelectedProjectId,
+    setWorkTab,
+    navigate,
+    openAssignmentComposer
   } = useOoumph();
 
-  const conversation = conversations[employee.id] || {
+  // Find all projects in this workspace where this employee participates
+  const participatingProjects = projects.filter(
+    (p) => p.workspaceId === activeWorkspace.id && p.participatingEmployeeIds.includes(employee.id)
+  );
+
+  // Active project context (default to context from navigation if available, else first participating project)
+  const [selectedProjectId, setLocalSelectedProjectId] = useState<string | null>(
+    activeEmployeeProjectContext?.projectId || (participatingProjects[0]?.id || null)
+  );
+
+  const activeProject = selectedProjectId ? projects.find((p) => p.id === selectedProjectId) : null;
+  const activeRun = activeProject ? workflowRuns.find((r) => r.id === activeProject.workflowRunId) : null;
+  const currentStep = activeRun?.steps.find((s) => s.employeeCode === employee.code);
+  const activeTask = tasks.find(
+    (t) => t.projectId === selectedProjectId && (t.employeeId === employee.id || t.employeeCode === employee.code) && t.status !== 'completed'
+  ) || tasks.find(
+    (t) => t.projectId === selectedProjectId && (t.employeeId === employee.id || t.employeeCode === employee.code)
+  );
+
+  // Scoped conversation key
+  const convKey = selectedProjectId ? `${employee.id}__proj_${selectedProjectId}` : employee.id;
+  const conversation = conversations[convKey] || conversations[employee.id] || {
+    id: `conv-${convKey}`,
+    workspaceId: activeWorkspace.id,
     employeeId: employee.id,
+    projectId: selectedProjectId || undefined,
     messages: [],
     takeover: false
   };
@@ -61,18 +99,26 @@ export const EmployeeWorkspace: React.FC<EmployeeWorkspaceProps> = ({ employee }
   const handleSend = (e: React.FormEvent) => {
     e.preventDefault();
     if (!inputMessage.trim()) return;
-    sendMessage(employee.id, inputMessage);
+    sendMessage(employee.id, inputMessage, selectedProjectId);
     setInputMessage('');
   };
 
   const handleStarterPrompt = (prompt: string) => {
-    sendMessage(employee.id, prompt);
+    sendMessage(employee.id, prompt, selectedProjectId);
+  };
+
+  const handleGoToProject = () => {
+    if (activeProject) {
+      setSelectedProjectId(activeProject.id);
+      setWorkTab('projects');
+      navigate('work');
+    }
   };
 
   return (
     <div className="flex h-[calc(100vh-61px)] flex-col bg-white overflow-hidden">
       {/* Workspace Header */}
-      <div className="flex items-center justify-between border-b border-slate-200 px-6 py-3.5 bg-white shrink-0">
+      <div className="flex items-center justify-between border-b border-slate-200 px-6 py-3 bg-white shrink-0">
         <div className="flex items-center gap-3">
           <button
             onClick={() => selectEmployee(null)}
@@ -135,6 +181,38 @@ export const EmployeeWorkspace: React.FC<EmployeeWorkspaceProps> = ({ employee }
 
         {/* Header Action Controls */}
         <div className="flex items-center gap-2">
+          {/* Quick Assign Task or Routine */}
+          <button
+            type="button"
+            onClick={() => openAssignmentComposer(employee.id, undefined, selectedProjectId)}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold rounded-lg shadow-2xs transition-colors cursor-pointer"
+            title={`Assign task or recurring routine to ${employee.name}`}
+          >
+            <Plus className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">Assign</span>
+          </button>
+
+          {/* Thread / Project Context Selector (Requirement K) */}
+          {participatingProjects.length > 0 && (
+            <div className="hidden lg:flex items-center gap-1 bg-slate-50 p-1 rounded-lg border border-slate-200 text-xs">
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider pl-1">
+                Context:
+              </span>
+              <select
+                value={selectedProjectId || ''}
+                onChange={(e) => setLocalSelectedProjectId(e.target.value || null)}
+                className="bg-white border border-slate-200 rounded px-2 py-1 text-xs text-slate-800 font-semibold focus:outline-hidden cursor-pointer"
+              >
+                {participatingProjects.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    Project: {p.title}
+                  </option>
+                ))}
+                <option value="">General Workspace Chat</option>
+              </select>
+            </div>
+          )}
+
           {/* Mobile Chat vs Work Segmented Switcher */}
           <div className="flex md:hidden rounded-lg bg-slate-100 p-0.5">
             <button
@@ -170,7 +248,7 @@ export const EmployeeWorkspace: React.FC<EmployeeWorkspaceProps> = ({ employee }
 
           {/* Human Takeover Toggle */}
           <button
-            onClick={() => toggleTakeover(employee.id)}
+            onClick={() => toggleTakeover(employee.id, selectedProjectId)}
             className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium border transition-colors cursor-pointer ${
               conversation.takeover
                 ? 'border-rose-300 bg-rose-50 text-rose-800'
@@ -183,6 +261,56 @@ export const EmployeeWorkspace: React.FC<EmployeeWorkspaceProps> = ({ employee }
           </button>
         </div>
       </div>
+
+      {/* COMPACT PROJECT CONTEXT BANNER (Requirement K) */}
+      {activeProject && (
+        <div className="px-6 py-2.5 bg-linear-to-r from-indigo-50/80 via-white to-teal-50/50 border-b border-indigo-100 flex flex-wrap items-center justify-between gap-3 text-xs shrink-0">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="flex items-center gap-1.5 font-bold text-indigo-950">
+              <Layers className="h-4 w-4 text-indigo-700 shrink-0" />
+              <span>Working on:</span>
+              <span className="font-semibold text-slate-800 truncate max-w-[200px] sm:max-w-xs">
+                {activeProject.title}
+              </span>
+            </div>
+
+            <span className="text-slate-300 hidden sm:inline">|</span>
+
+            <div className="hidden sm:flex items-center gap-2">
+              <span className="text-slate-500">Stage:</span>
+              <span className="font-semibold text-slate-900 truncate max-w-[180px]">
+                {currentStep?.title || activeTask?.title || 'Execution Stage'}
+              </span>
+              {currentStep && (
+                <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-white border border-indigo-200 text-indigo-800">
+                  {currentStep.status.replace('_', ' ').toUpperCase()}
+                </span>
+              )}
+            </div>
+
+            {currentStep?.expectedOutput && (
+              <>
+                <span className="text-slate-300 hidden md:inline">|</span>
+                <div className="hidden md:flex items-center gap-1.5 text-teal-800 font-medium">
+                  <span className="text-slate-400">Target Output:</span>
+                  <span className="font-bold truncate max-w-[160px]">{currentStep.expectedOutput}</span>
+                </div>
+              </>
+            )}
+          </div>
+
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              type="button"
+              onClick={handleGoToProject}
+              className="flex items-center gap-1 px-2.5 py-1 rounded-md bg-indigo-900 hover:bg-indigo-950 text-white font-semibold text-[11px] transition-colors cursor-pointer shadow-2xs"
+            >
+              <span>View in Project Flow</span>
+              <ArrowRight className="h-3 w-3" />
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Contextual Channel Warning Banner */}
       {isChannelIssue && connection && (
@@ -198,24 +326,6 @@ export const EmployeeWorkspace: React.FC<EmployeeWorkspaceProps> = ({ employee }
             className="px-2.5 py-1 rounded bg-amber-800 hover:bg-amber-900 text-white font-semibold text-[11px] transition-colors shrink-0 cursor-pointer"
           >
             Open Diagnostics
-          </button>
-        </div>
-      )}
-
-      {/* Contextual Missing Channel Banner */}
-      {isChannelMissing && primaryProvider && (
-        <div className="px-6 py-2 bg-slate-50 border-b border-slate-200 text-xs text-slate-700 flex items-center justify-between gap-3 shrink-0">
-          <div className="flex items-center gap-2">
-            <Plug className="h-3.5 w-3.5 text-slate-500 shrink-0" />
-            <span>
-              <strong>Channel Integration:</strong> Connect {providerCatalogItem?.name} to enable automated live dispatches for {employee.name}.
-            </span>
-          </div>
-          <button
-            onClick={() => openConnectIntegration(primaryProvider)}
-            className="px-2.5 py-1 rounded bg-slate-900 hover:bg-slate-800 text-white font-semibold text-[11px] transition-colors shrink-0 cursor-pointer"
-          >
-            Connect Channel
           </button>
         </div>
       )}
@@ -318,3 +428,4 @@ export const EmployeeWorkspace: React.FC<EmployeeWorkspaceProps> = ({ employee }
     </div>
   );
 };
+

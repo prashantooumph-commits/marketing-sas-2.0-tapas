@@ -490,6 +490,8 @@ export const WorkflowSetupWizardModal: React.FC = () => {
         employeeId: employees.find((e) => e.code === s.employeeCode)?.id,
         description: s.description,
         status: 'pending',
+        inputs: rich?.inputs || (idx > 0 ? [`${primaryTemplate?.expectedSteps[idx - 1]?.title} Deliverable`] : ['Project Scope Brief']),
+        expectedOutput: rich?.expectedOutput || `${s.title} Deliverable`,
         humanAssigneeName: rich?.humanAssigneeName,
         humanAssigneeRole: rich?.humanAssigneeRole,
         conditionConfig: rich?.conditionConfig,
@@ -505,14 +507,28 @@ export const WorkflowSetupWizardModal: React.FC = () => {
       (t) => getConnectionStatus(t) === 'needs_connection'
     );
 
-    // Build project object
+    // Create the workflow run FIRST and capture the ACTUAL runId (Requirement A.1)
+    const actualRunId = createWorkflowRun({
+      id: newRunId,
+      workspaceId: activeWorkspace.id,
+      templateId: primaryTemplate?.id || 'wf-01',
+      templateName: primaryTemplate?.name || 'Initiative',
+      title: `${initiativeName} Run`,
+      status: 'ready_to_start',
+      projectId: newProjectId,
+      currentStepIndex: 0,
+      steps: runSteps,
+      startedAt: new Date().toISOString()
+    });
+
+    // Build project object using the real actualRunId
     const newProject = {
       workspaceId: activeWorkspace.id,
       title: initiativeName.trim() || `${primaryTemplate?.name || 'New'} Initiative`,
       objective: goalObjective.trim() || primaryTemplate?.outcome || 'Execute business workflow',
       status: status, // 'ready' for Ready to Start, 'planning' for Draft
       participatingEmployeeIds: configuredAiTeam.map((e) => e.employeeId),
-      workflowRunId: newRunId,
+      workflowRunId: actualRunId,
       workflowTemplateId: primaryTemplate?.id,
       businessSolutionId: targetSolution?.id,
       plannedWorkflowTemplateIds: targetSolution
@@ -568,40 +584,52 @@ export const WorkflowSetupWizardModal: React.FC = () => {
       tags: targetSolution ? [targetSolution.code, 'Solution Pack'] : [primaryTemplate?.category || 'Workflow']
     };
 
-    // Create the workflow run
-    createWorkflowRun({
-      workspaceId: activeWorkspace.id,
-      templateId: primaryTemplate?.id || 'wf-01',
-      templateName: primaryTemplate?.name || 'Initiative',
-      title: `${initiativeName} Run`,
-      status: 'ready_to_start',
-      projectId: newProjectId,
-      currentStepIndex: 0,
-      steps: runSteps,
-      startedAt: new Date().toISOString()
-    });
-
     // Create Project
     createProject(newProject);
 
-    // Create initial project task
-    const firstEmp = configuredAiTeam[0];
-    if (firstEmp) {
-      createProjectTask({
-        workspaceId: activeWorkspace.id,
-        projectId: newProjectId,
-        workflowRunId: newRunId,
-        workflowStepId: runSteps[0]?.id,
-        title: `Prepare ${runSteps[0]?.title || 'Initial Stage'}`,
-        employeeId: firstEmp.employeeId,
-        employeeName: firstEmp.name,
-        employeeCode: firstEmp.code,
-        status: 'pending',
-        category: primaryTemplate?.category || 'Operations',
-        description: `Execute milestone 1: ${runSteps[0]?.description || 'Initial deliverable'} for project "${initiativeName}".`,
-        outputData: null
-      });
-    }
+    // Create tasks for ALL executable steps (Requirement A.5)
+    runSteps.forEach((s, idx) => {
+      if (s.type === 'employee_task') {
+        const emp = employees.find((e) => e.code === s.employeeCode) || (configuredAiTeam.find((e) => e.code === s.employeeCode) as any);
+        createProjectTask({
+          workspaceId: activeWorkspace.id,
+          projectId: newProjectId,
+          workflowRunId: actualRunId,
+          workflowStepId: s.id,
+          title: s.title,
+          employeeId: emp?.employeeId || emp?.id || 'emp-a01',
+          employeeName: emp?.name || 'Specialist',
+          employeeCode: s.employeeCode || emp?.code || 'A01',
+          status: 'pending',
+          category: primaryTemplate?.category || 'Execution',
+          description: s.description,
+          dependsOn: idx > 0 ? runSteps[idx - 1]?.title : undefined,
+          expectedOutput: s.expectedOutput || `${s.title} Deliverable`,
+          inputs: s.inputs || ['Project Scope Brief'],
+          cadence: primaryTemplate?.trigger?.scheduleRecurrence || 'One-time',
+          outputData: null
+        });
+      } else if (s.type === 'human_task') {
+        createProjectTask({
+          workspaceId: activeWorkspace.id,
+          projectId: newProjectId,
+          workflowRunId: actualRunId,
+          workflowStepId: s.id,
+          title: s.title,
+          employeeId: 'human-operator',
+          employeeName: s.humanAssigneeName || 'Workspace Operator',
+          employeeCode: 'HUMAN',
+          status: 'pending',
+          category: 'Human Task',
+          description: s.description,
+          dependsOn: idx > 0 ? runSteps[idx - 1]?.title : undefined,
+          expectedOutput: s.expectedOutput || 'Human Review & Verification',
+          inputs: s.inputs || ['Previous Stage Output'],
+          cadence: 'One-time',
+          outputData: null
+        });
+      }
+    });
 
     // Close wizard and switch to Project view
     setIsWorkflowSetupWizardOpen(false);
@@ -877,6 +905,47 @@ export const WorkflowSetupWizardModal: React.FC = () => {
                   </button>
                 </div>
               )}
+
+              {/* Flow Preview: How this team will work (Requirement F) */}
+              <div className="p-4 rounded-xl border border-indigo-200 bg-indigo-50/40 space-y-3">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-xs font-bold text-indigo-950 flex items-center gap-1.5">
+                    <Layers className="h-3.5 w-3.5 text-indigo-700" />
+                    <span>How this team will work — Process & Output Hand-off Flow</span>
+                  </h4>
+                  <span className="text-[10px] font-semibold text-indigo-800 bg-white px-2 py-0.5 rounded border border-indigo-200">
+                    Ordered Execution Sequence
+                  </span>
+                </div>
+                <p className="text-[11px] text-indigo-900 leading-relaxed">
+                  Specialists and human reviewers execute sequentially. Output produced at each stage becomes the baseline context and input for the next stage.
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 pt-1">
+                  {(primaryTemplate?.expectedSteps || []).map((s, idx) => {
+                    const emp = employees.find((e) => e.code === s.employeeCode);
+                    return (
+                      <div key={idx} className="p-3 rounded-lg border border-indigo-100 bg-white shadow-2xs space-y-1">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[9px] font-mono font-bold text-slate-400">STAGE {idx + 1}</span>
+                          <span className="text-[9px] font-bold text-indigo-700 bg-indigo-50 px-1.5 py-0.5 rounded">
+                            {s.employeeCode || (s.type === 'human_approval' ? 'HUMAN APPROVAL' : 'HUMAN TASK')}
+                          </span>
+                        </div>
+                        <div className="font-bold text-slate-900 text-xs truncate">
+                          {emp ? `${emp.name} (${emp.code})` : s.title}
+                        </div>
+                        <div className="text-[11px] text-slate-600 line-clamp-1">{s.title}</div>
+                        <div className="pt-1.5 border-t border-slate-100 flex items-center justify-between text-[10px]">
+                          <span className="text-slate-400 font-medium">Output:</span>
+                          <span className="text-teal-800 font-bold truncate max-w-[140px]">
+                            {s.title} Deliverable
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
 
               {/* Section 1: AI Specialist Team */}
               <div className="space-y-3">

@@ -14,7 +14,8 @@ import {
   TeamMember,
   ActivityEvent,
   ScheduledMeeting,
-  BusinessSolution
+  BusinessSolution,
+  RecurringAutomation
 } from '../types';
 import { INITIAL_WORKFLOW_TEMPLATES } from './workflowTemplates';
 import { INITIAL_BUSINESS_SOLUTIONS } from './businessSolutions';
@@ -27,6 +28,19 @@ export const INITIAL_USER_SETTINGS: UserSettings = {
   autonomyLevel: 'Balanced (Auto Draft, Confirm High-Risk)',
   planTier: 'Growth',
   activeWorkspaceId: 'ws-cedar',
+  workDefaults: {
+    defaultTimezone: 'America/Los_Angeles (PST)',
+    defaultWorkingDays: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'],
+    defaultWorkingHours: '09:00 - 18:00 PST',
+    defaultApprovalMode: 'review_before_external',
+    defaultProjectOwnerId: 'tm-1',
+    defaultProjectApproverId: 'tm-1',
+    notifyOnRecurringRunComplete: true,
+    notifyOnHumanTaskAssigned: true,
+    notifyOnApprovalRequired: true,
+    notifyOnProjectBlocked: true,
+    notifyOnConnectionFailure: true
+  },
   notificationPreferences: {
     approvals: true,
     workflowFailures: true,
@@ -372,6 +386,25 @@ export const INITIAL_PROJECTS: Project[] = [
     title: 'Q4 Executive Fellowship Cohort Launch',
     objective: 'Launch the Fall 2026 6-week tactical leadership fellowship, deploy revised landing page, and enroll 24 verified fellows.',
     status: 'in_progress',
+    projectType: 'MULTI_PHASE_INITIATIVE',
+    cadenceType: 'weekly',
+    startDate: '2026-09-22',
+    endDate: '2026-12-15',
+    endRule: 'specific_date',
+    scheduleDetails: {
+      daysOfWeek: ['Tuesday'],
+      timeOfDay: '09:00 AM',
+      timezone: 'America/New_York (EST)',
+      nextRunDate: '2026-10-13T09:00:00Z',
+      lastRunDate: '2026-10-06T09:00:00Z',
+      occurrenceLimit: 12,
+      occurrencesCompleted: 3
+    },
+    runHistory: [
+      { id: 'run-hist-1', runNumber: 1, date: '2026-09-22', status: 'completed', outputCount: 4, runLabel: 'Week 1 — Strategy & Offer Architecture', summary: 'Curriculum structure, offer tiers, and core pricing finalized.' },
+      { id: 'run-hist-2', runNumber: 2, date: '2026-09-29', status: 'completed', outputCount: 5, runLabel: 'Week 2 — Messaging & Copy Matrix', summary: '3 headline angles, value proposition copy, and syllabus narrative produced.' },
+      { id: 'run-hist-3', runNumber: 3, date: '2026-10-06', status: 'completed_with_changes', outputCount: 6, runLabel: 'Week 3 — Web Page & Visual Identity', summary: 'Landing page deployed on cedarlearning.co; founder requested headline refinement.' }
+    ],
     participatingEmployeeIds: ['emp-a08', 'emp-a12', 'emp-a07', 'emp-a19', 'emp-a02', 'emp-a17', 'emp-a09'],
     workflowRunId: 'run-1',
     dueAt: '2026-11-01T00:00:00Z',
@@ -401,6 +434,22 @@ export const INITIAL_PROJECTS: Project[] = [
     title: 'Executive Revenue Guide Social Funnel',
     objective: 'Automate qualified lead generation via Flagship Comment-to-Guide campaign delivering 24-page PDF to LinkedIn/IG commenters.',
     status: 'in_progress',
+    projectType: 'RECURRING_PROGRAMME',
+    cadenceType: 'weekly',
+    startDate: '2026-10-01',
+    isOngoing: true,
+    endRule: 'no_end_date',
+    scheduleDetails: {
+      daysOfWeek: ['Monday'],
+      timeOfDay: '10:00 AM',
+      timezone: 'America/New_York (EST)',
+      nextRunDate: '2026-10-12T10:00:00Z',
+      lastRunDate: '2026-10-05T10:00:00Z',
+      occurrencesCompleted: 1
+    },
+    runHistory: [
+      { id: 'run-hist-2-1', runNumber: 1, date: '2026-10-05', status: 'completed', outputCount: 7, runLabel: 'Run #1 — Keyword "GROW" Activation', summary: 'Post published, PDF linked, 48 direct messages delivered.' }
+    ],
     participatingEmployeeIds: ['emp-a02', 'emp-a23', 'emp-a21', 'emp-a29', 'emp-a17'],
     workflowRunId: 'run-2',
     dueAt: '2026-10-25T00:00:00Z',
@@ -428,6 +477,11 @@ export const INITIAL_PROJECTS: Project[] = [
     title: 'California B2B Corporate Outbound Sprint',
     objective: 'Enrich 100 VP Operations leads, verify sender domain health, and run personalized 3-touch sequence for group enrollments.',
     status: 'planning',
+    projectType: 'FIXED_CAMPAIGN',
+    cadenceType: 'one_time',
+    startDate: '2026-10-05',
+    endDate: '2026-11-15',
+    endRule: 'specific_date',
     participatingEmployeeIds: ['emp-a04', 'emp-a29', 'emp-a16', 'emp-a09'],
     dueAt: '2026-11-15T00:00:00Z',
     createdAt: '2026-10-05T14:00:00Z',
@@ -455,6 +509,11 @@ export const INITIAL_PROJECTS: Project[] = [
     title: 'Vegetable-Tanned Weekender Bag Holiday Release',
     objective: 'Launch small batch of 50 handcrafted weekender duffel bags, coordinate lookbook photoshoot, and schedule Instagram release.',
     status: 'in_progress',
+    projectType: 'FIXED_CAMPAIGN',
+    cadenceType: 'one_time',
+    startDate: '2026-10-01',
+    endDate: '2026-11-20',
+    endRule: 'specific_date',
     participatingEmployeeIds: ['emp-a08', 'emp-a12', 'emp-a19', 'emp-a02', 'emp-a32'],
     dueAt: '2026-11-20T00:00:00Z',
     createdAt: '2026-10-01T09:00:00Z',
@@ -474,6 +533,117 @@ export const INITIAL_PROJECTS: Project[] = [
       'emp-a02': 'Schedule launch countdown teasers',
       'emp-a32': 'Manage serialized inventory seats and recover abandoned carts'
     }
+  }
+];
+
+export const INITIAL_RECURRING_AUTOMATIONS: RecurringAutomation[] = [
+  // CEDAR & CO AUTOMATIONS
+  {
+    id: 'auto-1',
+    workspaceId: 'ws-cedar',
+    projectId: 'proj-1',
+    workflowTemplateId: 'wf-weekly-content',
+    employeeId: 'emp-a02',
+    title: 'Weekly Founder Content Engine',
+    description: 'Autonomous weekly thought leadership drafting, graphic creation, and review loop for executive education authority.',
+    cadenceType: 'weekly',
+    scheduleDetails: {
+      daysOfWeek: ['Monday'],
+      timeOfDay: '09:00 AM',
+      timezone: 'America/New_York (EST)'
+    },
+    startDate: '2026-09-14T09:00:00Z',
+    endRule: 'ongoing',
+    occurrencesCompleted: 5,
+    nextRunDate: '2026-10-19T09:00:00Z',
+    lastRunDate: '2026-10-12T09:00:00Z',
+    lastRunStatus: 'completed',
+    lastRunOutputSummary: '3 LinkedIn posts, 1 curriculum quote slide, 1 newsletter teaser',
+    status: 'active',
+    approvalBehavior: 'review_before_external',
+    expectedOutput: '3 LinkedIn thought leadership posts + 1 visual slide',
+    outputFormat: 'Social Post + Graphic',
+    createdAt: '2026-09-14T09:00:00Z',
+    updatedAt: '2026-10-12T09:30:00Z'
+  },
+  {
+    id: 'auto-2',
+    workspaceId: 'ws-cedar',
+    projectId: 'proj-2',
+    employeeId: 'emp-a17',
+    title: 'Sub-60s Inbound Lead Qualification',
+    description: 'Event-driven triage of new web form submissions and "GROW" commenters with instant qualification and booking delivery.',
+    cadenceType: 'event_driven',
+    scheduleDetails: {
+      triggerEvent: 'new_lead',
+      triggerSummary: 'Triggered when prospect submits form or comments keyword "GROW"'
+    },
+    startDate: '2026-10-01T00:00:00Z',
+    endRule: 'ongoing',
+    occurrencesCompleted: 38,
+    lastRunDate: '2026-10-09T14:31:00Z',
+    lastRunStatus: 'completed',
+    lastRunOutputSummary: 'Qualified David Kalu and delivered discovery call booking link',
+    status: 'active',
+    approvalBehavior: 'none',
+    expectedOutput: 'ICP fit score + instant calendar booking invitation',
+    outputFormat: 'CRM Record Update + Direct Message',
+    createdAt: '2026-10-01T00:00:00Z',
+    updatedAt: '2026-10-09T14:35:00Z'
+  },
+  {
+    id: 'auto-3',
+    workspaceId: 'ws-cedar',
+    employeeId: 'emp-a01',
+    title: 'Daily Executive Morning Briefing',
+    description: 'Daily triage of VIP emails, buffer defense for calendar, and priority agenda delivered to founder.',
+    cadenceType: 'weekdays',
+    scheduleDetails: {
+      daysOfWeek: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'],
+      timeOfDay: '08:00 AM',
+      timezone: 'America/New_York (EST)'
+    },
+    startDate: '2026-09-01T00:00:00Z',
+    endRule: 'ongoing',
+    occurrencesCompleted: 28,
+    nextRunDate: '2026-10-13T08:00:00Z',
+    lastRunDate: '2026-10-10T08:00:00Z',
+    lastRunStatus: 'completed',
+    lastRunOutputSummary: 'Executive daily summary + 3 calendar focus slots defended',
+    status: 'active',
+    approvalBehavior: 'none',
+    expectedOutput: 'Daily executive agenda + inbox triage briefing',
+    outputFormat: 'Briefing Document',
+    createdAt: '2026-09-01T00:00:00Z',
+    updatedAt: '2026-10-10T08:15:00Z'
+  },
+
+  // ACME CRAFT GOODS AUTOMATIONS
+  {
+    id: 'auto-acme-1',
+    workspaceId: 'ws-acme',
+    projectId: 'proj-acme-1',
+    employeeId: 'emp-a02',
+    title: 'Daily Artisan Workshop Product Story',
+    description: 'Daily Instagram story focus and craft storytelling for heritage leather goods.',
+    cadenceType: 'daily',
+    scheduleDetails: {
+      timeOfDay: '11:00 AM',
+      timezone: 'America/Los_Angeles (PST)'
+    },
+    startDate: '2026-10-01T00:00:00Z',
+    endRule: 'ongoing',
+    occurrencesCompleted: 10,
+    nextRunDate: '2026-10-11T11:00:00Z',
+    lastRunDate: '2026-10-10T11:00:00Z',
+    lastRunStatus: 'completed',
+    lastRunOutputSummary: 'Waxed canvas tote feature with vegetable-tanning process photos',
+    status: 'active',
+    approvalBehavior: 'review_before_external',
+    expectedOutput: '1 Instagram story series + 1 product caption',
+    outputFormat: 'Social Story (9:16)',
+    createdAt: '2026-10-01T00:00:00Z',
+    updatedAt: '2026-10-10T11:20:00Z'
   }
 ];
 
@@ -812,8 +982,13 @@ export const INITIAL_TASKS: Task[] = [
     employeeName: 'Aria Vance',
     employeeCode: 'A01',
     status: 'completed',
+    taskType: 'recurring',
     category: 'Executive Support',
     description: 'Summarize today\'s schedule, identify 2 buffer conflicts, and draft polite reschedule for partner intro.',
+    expectedOutput: 'Daily executive briefing + calendar buffer defense',
+    outputFormat: 'Executive Agenda Summary',
+    cadence: 'Daily (Weekdays) at 08:00 AM',
+    needsApproval: false,
     outputData: {
       briefingSummary: 'You have 3 meetings today: 10:00 AM Discovery Call with David Kalu (Vanguard), 1:30 PM Team Sync, 3:00 PM Advisor Catch-up. 1 pending reschedule needed for Friday afternoon.',
       actionItems: ['Approve David Kalu meeting agenda', 'Confirm Friday buffer space']
@@ -825,13 +1000,23 @@ export const INITIAL_TASKS: Task[] = [
     id: 'task-2',
     workspaceId: 'ws-cedar',
     projectId: 'proj-1',
+    workflowRunId: 'run-1',
+    workflowStepId: 'step-1-4',
     title: 'LinkedIn Thought Leadership Post: Founder Delegation',
     employeeId: 'emp-a02',
     employeeName: 'Soren Miller',
     employeeCode: 'A02',
     status: 'needs_review',
+    taskType: 'project_step',
     category: 'Social Content',
     description: 'Organic LinkedIn post breaking down why founders fail at delegating before mastering personal systems.',
+    dependsOn: 'Build Landing Page with Live Lead Form',
+    expectedOutput: 'Approved LinkedIn Thought Leadership Post',
+    outputFormat: 'LinkedIn Post with 1:1 image',
+    cadence: 'Weekly on Tuesdays',
+    runLabel: 'Week of 12 October',
+    needsApproval: true,
+    approvalMode: 'review_before_external',
     outputData: {
       platform: 'LinkedIn',
       content: 'Most business owners think delegation fails because "nobody cares like the founder does."\n\nIn reality, delegation fails because of fuzzy definitions:\n\n1. What does "done" look like?\n2. What is the explicit boundary of authority?\n3. Where is the single source of truth for lessons learned?\n\nWhen you give employees (AI or human) unambiguous guidelines and reversible test tasks, delegation stops feeling like a gamble.\n\nWhat is the hardest task you have ever handed off?',
@@ -849,8 +1034,12 @@ export const INITIAL_TASKS: Task[] = [
     employeeName: 'Penny Thorne',
     employeeCode: 'A03',
     status: 'completed',
+    taskType: 'project_step',
     category: 'SEO & Editorial',
     description: '1,800-word comprehensive SEO pillar article targeting "executive cohort leadership training".',
+    expectedOutput: '1,800-word SEO Pillar Article',
+    outputFormat: 'Markdown Document',
+    needsApproval: false,
     outputData: {
       targetKeyword: 'executive cohort leadership training',
       searchVolume: '2,400 / mo',
@@ -870,8 +1059,13 @@ export const INITIAL_TASKS: Task[] = [
     employeeName: 'Arthur Pendelton',
     employeeCode: 'A16',
     status: 'needs_review',
+    taskType: 'project_step',
     category: 'Outbound Sales',
     description: 'Personalized cold sequence targeting VP People and Operations with verified value props.',
+    expectedOutput: 'Personalized 3-Touch Email Cadence',
+    outputFormat: 'Email Templates (Subject + Body)',
+    needsApproval: true,
+    approvalMode: 'review_before_external',
     outputData: {
       step1: 'Subject: Quick question regarding {company}\'s manager training in Q4',
       step2: 'Subject: Re: Follow up on operational systems for {company}',
@@ -891,8 +1085,12 @@ export const INITIAL_TASKS: Task[] = [
     employeeName: 'Porter Hayes',
     employeeCode: 'A12',
     status: 'completed',
+    taskType: 'one_time',
     category: 'Product Copy',
     description: 'Focus on vegetable-tanned patina development and solid brass hardware.',
+    expectedOutput: '3 Lookbook Slide Captions',
+    outputFormat: 'Lookbook Slide Copy',
+    needsApproval: false,
     outputData: {
       headline: 'Built for Decades, Not Seasons',
       subheading: '100% full-grain Tuscan leather that matures with every journey.'
@@ -908,6 +1106,8 @@ export const INITIAL_APPROVALS: ApprovalRequest[] = [
     id: 'appr-1',
     workspaceId: 'ws-cedar',
     projectId: 'proj-1',
+    workflowRunId: 'run-1',
+    workflowStepId: 'step-1-4',
     title: 'Publish LinkedIn Post: "Founder Delegation Framework"',
     summary: 'Soren Miller prepared an organic thought-leadership post for LinkedIn scheduled for tomorrow at 09:15 AM PST to connected account @cedarlearning.',
     employeeId: 'emp-a02',

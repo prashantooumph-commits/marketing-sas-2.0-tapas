@@ -1,8 +1,12 @@
 import React, { useState } from 'react';
 import { useOoumph } from '../../store/ooumphStore';
-import { TaskStatus, Project, WorkflowRun, WorkflowTemplate, BusinessSolution } from '../../types';
+import { TaskStatus, Project, WorkflowRun, WorkflowTemplate, BusinessSolution, WorkflowStep, Task } from '../../types';
 import { BusinessSolutionCard } from '../workflows/BusinessSolutionCard';
 import { WorkflowCard } from '../workflows/WorkflowCard';
+import { ProjectExecutionMap } from '../workflows/ProjectExecutionMap';
+import { WorkflowStepDetailDrawer } from '../workflows/WorkflowStepDetailDrawer';
+import { AutomationsLibraryView } from '../workflows/AutomationsLibraryView';
+import { TaskDetailModal } from '../modals/TaskDetailModal';
 import {
   Calendar as CalendarIcon,
   CheckCircle2,
@@ -41,7 +45,10 @@ import {
   Trash2,
   Copy,
   Edit3,
-  Eye
+  Eye,
+  Settings as SettingsIcon,
+  Repeat,
+  SlidersHorizontal
 } from 'lucide-react';
 
 export const MyWorkView: React.FC = () => {
@@ -95,12 +102,17 @@ export const MyWorkView: React.FC = () => {
     archiveWorkflowTemplate,
     restoreWorkflowTemplate,
     deleteCustomWorkflowTemplate,
-    saveProjectAsWorkflowTemplate
+    saveProjectAsWorkflowTemplate,
+    recurringAutomations,
+    openAssignmentComposer,
+    openProjectSettings
   } = useOoumph();
 
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
-  const [projectSubTab, setProjectSubTab] = useState<'overview' | 'workflow' | 'tasks' | 'assets' | 'activity' | 'results'>('overview');
+  const [projectSubTab, setProjectSubTab] = useState<'overview' | 'flow' | 'workflow' | 'tasks' | 'outputs' | 'assets' | 'activity' | 'results'>('overview');
+  const [selectedStepForDrawer, setSelectedStepForDrawer] = useState<WorkflowStep | null>(null);
+  const [selectedTaskForModal, setSelectedTaskForModal] = useState<Task | null>(null);
   const [workflowCategoryFilter, setWorkflowCategoryFilter] = useState<string>('All');
   const [placeholderModalInfo, setPlaceholderModalInfo] = useState<{ title: string; description: string } | null>(null);
   const [activeProjectChangeRequestId, setActiveProjectChangeRequestId] = useState<string | null>(null);
@@ -322,6 +334,7 @@ export const MyWorkView: React.FC = () => {
             { id: 'projects', label: 'Projects', badge: wsProjects.length },
             { id: 'tasks', label: 'Tasks', badge: tasks.length },
             { id: 'workflows', label: 'Workflows', badge: workflowTemplates.length },
+            { id: 'routines', label: 'Routines', badge: recurringAutomations.filter((a) => a.workspaceId === activeWorkspace.id).length },
             { id: 'calendar', label: 'Calendar' },
             { id: 'assets', label: 'Assets' },
             { id: 'results', label: 'Results' }
@@ -458,8 +471,17 @@ export const MyWorkView: React.FC = () => {
                     <p className="text-xs text-slate-600 leading-relaxed">{currentProject.objective}</p>
                   </div>
 
-                  {/* Primary Project Action (Requirement I) */}
-                  <div className="shrink-0">
+                  {/* Primary Project Action & Settings */}
+                  <div className="flex items-center gap-2 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => openProjectSettings(currentProject.id)}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold shadow-2xs transition-colors cursor-pointer"
+                      title="Project Settings, Schedule Cadence & Governance Lifecycle"
+                    >
+                      <SettingsIcon className="h-3.5 w-3.5 text-slate-500" />
+                      <span>Settings</span>
+                    </button>
                     {currentProject.status === 'ready' ? (
                       <button
                         onClick={() => startProject(currentProject.id)}
@@ -470,11 +492,11 @@ export const MyWorkView: React.FC = () => {
                       </button>
                     ) : currentWorkflowRun ? (
                       <button
-                        onClick={() => setProjectSubTab('workflow')}
+                        onClick={() => setProjectSubTab('flow')}
                         className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-slate-900 text-white text-xs font-semibold hover:bg-slate-800 transition-colors shadow-2xs cursor-pointer"
                       >
                         <Play className="h-3 w-3 fill-current" />
-                        <span>View Execution Stepper</span>
+                        <span>View Execution Map</span>
                       </button>
                     ) : (
                       <button
@@ -517,33 +539,39 @@ export const MyWorkView: React.FC = () => {
                 <div className="flex items-center gap-1 border-b border-slate-200 pb-2 overflow-x-auto text-xs font-medium text-slate-600">
                   {[
                     { id: 'overview', label: 'Overview' },
-                    { id: 'workflow', label: 'Workflow Stepper', badge: currentWorkflowRun ? `${currentWorkflowRun.currentStepIndex + 1}/${currentWorkflowRun.steps.length}` : undefined },
+                    { id: 'flow', label: 'Flow', badge: currentWorkflowRun ? `${currentWorkflowRun.currentStepIndex + 1}/${currentWorkflowRun.steps.length}` : undefined },
                     { id: 'tasks', label: 'Tasks', badge: projectTasks.length },
-                    { id: 'assets', label: 'Assets' },
+                    { id: 'outputs', label: 'Outputs' },
                     { id: 'activity', label: 'Activity', badge: projectActivities.length },
                     { id: 'results', label: 'Results' }
-                  ].map((tab) => (
-                    <button
-                      key={tab.id}
-                      onClick={() => setProjectSubTab(tab.id as any)}
-                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md transition-colors cursor-pointer ${
-                        projectSubTab === tab.id
-                          ? 'bg-slate-900 text-white font-semibold'
-                          : 'hover:bg-slate-100 text-slate-600'
-                      }`}
-                    >
-                      <span>{tab.label}</span>
-                      {tab.badge && (
-                        <span
-                          className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
-                            projectSubTab === tab.id ? 'bg-slate-700 text-white' : 'bg-slate-200 text-slate-700'
-                          }`}
-                        >
-                          {tab.badge}
-                        </span>
-                      )}
-                    </button>
-                  ))}
+                  ].map((tab) => {
+                    const isActive =
+                      projectSubTab === tab.id ||
+                      (tab.id === 'flow' && projectSubTab === 'workflow') ||
+                      (tab.id === 'outputs' && projectSubTab === 'assets');
+                    return (
+                      <button
+                        key={tab.id}
+                        onClick={() => setProjectSubTab(tab.id as any)}
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md transition-colors cursor-pointer ${
+                          isActive
+                            ? 'bg-slate-900 text-white font-semibold'
+                            : 'hover:bg-slate-100 text-slate-600'
+                        }`}
+                      >
+                        <span>{tab.label}</span>
+                        {tab.badge && (
+                          <span
+                            className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
+                              isActive ? 'bg-slate-700 text-white' : 'bg-slate-200 text-slate-700'
+                            }`}
+                          >
+                            {tab.badge}
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
                 </div>
 
                 {/* 1. PROJECT OVERVIEW TAB */}
@@ -925,15 +953,25 @@ export const MyWorkView: React.FC = () => {
                   </div>
                 )}
 
-                {/* 2. PROJECT WORKFLOW STEPPER TAB */}
-                {projectSubTab === 'workflow' && (
+                {/* 2. PROJECT FLOW / EXECUTION MAP TAB */}
+                {(projectSubTab === 'flow' || projectSubTab === 'workflow') && (
                   <div className="space-y-4 animate-fade-in">
+                    {/* Visual Execution Map */}
+                    <div className="mb-2">
+                      <ProjectExecutionMap
+                        project={currentProject}
+                        run={currentWorkflowRun}
+                        onSelectStep={(step) => setSelectedStepForDrawer(step)}
+                        activeStepId={selectedStepForDrawer?.id}
+                      />
+                    </div>
+
                     {currentWorkflowRun ? (
-                      <div className="space-y-3">
+                      <div className="space-y-3 pt-2 border-t border-slate-100">
                         <div className="flex flex-wrap items-center justify-between pb-2 border-b border-slate-100 text-xs gap-2">
                           <div className="flex items-center gap-2">
                             <div>
-                              <span className="font-semibold text-slate-900">Workflow: </span>
+                              <span className="font-semibold text-slate-900">Step-by-Step Execution: </span>
                               <span className="text-slate-600">{currentWorkflowRun.templateName}</span>
                             </div>
                             <span className="text-slate-400">·</span>
@@ -1369,8 +1407,8 @@ export const MyWorkView: React.FC = () => {
                   </div>
                 )}
 
-                {/* 4. PROJECT ASSETS TAB */}
-                {projectSubTab === 'assets' && (
+                {/* 4. PROJECT OUTPUTS TAB */}
+                {(projectSubTab === 'outputs' || projectSubTab === 'assets') && (
                   <div className="space-y-4 animate-fade-in text-xs">
                     {/* Dynamic Milestone Deliverables generated autonomously */}
                     {currentProject.projectAssets && currentProject.projectAssets.length > 0 && (
@@ -1572,6 +1610,15 @@ export const MyWorkView: React.FC = () => {
                 <option value="in_progress">In Progress</option>
                 <option value="approved">Approved</option>
               </select>
+
+              <button
+                type="button"
+                onClick={() => openAssignmentComposer(employees[0]?.id || 'emp-a02')}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-900 text-white text-xs font-semibold hover:bg-slate-800 transition-colors shadow-2xs cursor-pointer ml-1"
+              >
+                <Plus className="h-3.5 w-3.5" />
+                <span>Assign Task</span>
+              </button>
             </div>
           </div>
 
@@ -1585,7 +1632,7 @@ export const MyWorkView: React.FC = () => {
               filteredTasks.map((task) => (
                 <div
                   key={task.id}
-                  onClick={() => selectEmployee(task.employeeId)}
+                  onClick={() => setSelectedTaskForModal(task)}
                   className="p-4 flex items-center justify-between hover:bg-slate-50 cursor-pointer transition-colors"
                 >
                   <div className="space-y-1">
@@ -2121,6 +2168,13 @@ export const MyWorkView: React.FC = () => {
       )}
 
       {/* ========================================================================= */}
+      {/* SUB-TAB: ROUTINES & ACTIVE AUTOMATIONS (Phase 2C.2B) */}
+      {/* ========================================================================= */}
+      {workTab === 'routines' && (
+        <AutomationsLibraryView />
+      )}
+
+      {/* ========================================================================= */}
       {/* SUB-TAB 4: CALENDAR */}
       {/* ========================================================================= */}
       {workTab === 'calendar' && (
@@ -2425,6 +2479,21 @@ export const MyWorkView: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Workflow Step Detail Drawer (Phase 2C.2A & 2C.2B) */}
+      <WorkflowStepDetailDrawer
+        step={selectedStepForDrawer}
+        project={currentProject}
+        run={currentWorkflowRun}
+        onClose={() => setSelectedStepForDrawer(null)}
+      />
+
+      {/* Task Detail Modal (Phase 2C.2B) */}
+      <TaskDetailModal
+        task={selectedTaskForModal}
+        project={currentProject}
+        onClose={() => setSelectedTaskForModal(null)}
+      />
     </div>
   );
 };

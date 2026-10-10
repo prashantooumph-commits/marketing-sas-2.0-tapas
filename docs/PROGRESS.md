@@ -202,3 +202,98 @@
 - `compile_applet`: Passed.
 - `lint_applet`: Passed (`tsc --noEmit`, 0 warnings, 0 errors).
 
+## Phase 2C.2A Execution: Project Command Center, Execution Map & State Consistency Log
+
+### Key State Fixes & Enhancements
+1. **Real WorkflowRun ID Synchronization**:
+   - `WorkflowSetupWizardModal` and `createWorkflowRun` now return and store the exact real run ID. `Project.workflowRunId`, `Task.workflowRunId`, and `WorkflowRun.id` all point to the same genuine run instance.
+   - Initial run step work items are now generated for all executable workflow steps across the run, keeping tasks and approval gates synchronized.
+2. **Strict Project and Workspace Scoping**:
+   - `MyWorkView` strictly scopes projects to `activeWorkspaceId`. If a workspace has no projects, a clear empty state is rendered rather than falling back to an unrelated workspace's project.
+   - Project tasks are strictly filtered by `t.projectId === project.id || (project.workflowRunId && t.workflowRunId === project.workflowRunId)`.
+   - Pending approvals are strictly filtered by `appr.projectId === project.id || (project.workflowRunId && appr.workflowRunId === project.workflowRunId)`.
+   - Project outputs are strictly scoped to `projectId`. Global sample assets are rendered in a separate section clearly labeled "Sample / Not created by this Project".
+   - Project results are strictly attributed by `projectId` (attributed leads and deals). If none are attributed, displays 0 / Not yet measured with an explanation.
+3. **Six Step Types & Runtime Advancements**:
+   - Supported step types: `employee_task`, `human_task`, `human_approval`, `condition`, `wait_schedule`, and `handoff`.
+   - Condition steps evaluate branch configs (`thenStepId` / `elseStepId`).
+   - Wait schedule steps remain in waiting state until simulated duration or event trigger is advanced.
+   - Human tasks wait for explicit operator signoff / completion.
+   - Human approvals strictly target the exact `approvalId` and `workflowStepId`, resuming and advancing the same run without mutating unrelated tasks.
+   - Added `submitRevisionForStep` to handle change requests on specific workflow step outputs.
+4. **Project Information Architecture & Command Center**:
+   - Reorganized Project tabs into: **Overview**, **Flow** (Execution Map), **Tasks**, **Outputs**, **Activity**, and **Results**.
+   - **Command Bar**: Status, Outcome, Cadence badge, Start/End timing, Current Phase, Overall progress bar, and primary action buttons (`Start Project`, `View Current Work`, `Resume`, `Review Results`). Secondary dropdown menu provides Edit, Pause/Resume, Duplicate, Save as Template, Archive, and Project Settings.
+   - **First-Fold Command Center**: Five prioritized cards:
+     - **NOW**: Current active worker, active step title, execution duration.
+     - **NEXT**: Planned next step, next owner, and input requirements.
+     - **NEEDS YOU**: Operator approvals, decision gates, or human tasks awaiting completion.
+     - **BLOCKED**: Channel connection blocker diagnostics or blocked step resolution.
+     - **LATEST OUTPUT**: Most recent deliverable with 1-click preview and artifact viewer.
+   - Below the fold: Structured metadata cards for Goal, Timeline / Cadence, Team, Connections, Governance, and Success Targets.
+5. **Visual Execution Map (`ProjectExecutionMap.tsx`)**:
+   - Responsive business flow visualization: horizontal wrapping flow on desktop with directional arrows and handoff labels; vertical connected timeline on mobile.
+   - Compact cards displaying step number, type icon, worker avatar/badge, action title, status pill, inputs, and outputs.
+   - Interactive step clicking opens `WorkflowStepDetailDrawer`.
+6. **Step Detail Drawer (`WorkflowStepDetailDrawer.tsx`)**:
+   - Slide-over drawer with input contract, output contract, execution status, associated project task, approval gate details, and connection blocker diagnostics.
+   - Contextual actions: "Open Worker Workspace" (preserving project context), "Complete Human Task", "Approve Step", "Request Changes", "Retry Blocked Step", and "Skip Step".
+7. **Preserved Role Artifact Workspaces with Context**:
+   - `EmployeeWorkspace` receives and renders an active project context bar ("Working on: [Project Name] • [Step Title]") when opened from a project.
+   - Quick jump button to return directly to Project Command Center.
+   - Human takeover preserves project conversation threading without overwriting general chat.
+8. **Phase Transition Review Modal (`PhaseTransitionReviewModal.tsx`)**:
+   - Modal summarizing completed phase outputs, reviewing unresolved blockers/approvals, and previewing next phase specialists and first tasks before advancing.
+
+### Verification
+- `compile_applet`: Passed.
+- `lint_applet`: Passed (`tsc --noEmit`, 0 warnings, 0 errors).
+
+## Phase 2C.2B Execution: Assignment Cadence, Recurring Automations, Project Settings & Lifecycle Controls Log
+
+### Key Capabilities & Enhancements Implemented
+1. **Assignment Cadence & Assignment Composer (`AssignmentComposerModal.tsx`)**:
+   - Comprehensive assignment creation for any AI specialist or human teammate.
+   - Configurable timing cadences:
+     - `once_now`: Immediate execution.
+     - `once_later`: Scheduled one-time assignment with date/time pickers.
+     - `daily`, `weekdays`, `weekly`, `monthly`: Recurring routines.
+     - `event_driven`: Triggered by business events (`new_lead`, `deal_stage_changed`, `form_submission`, `content_approved`, `customer_comment`, `system_webhook`).
+   - Termination and duration rules: `one_occurrence`, `until_date`, `occurrences_count`, `ongoing_until_stopped`.
+   - Project affiliation modes: standalone, attach to active/existing Project, or create new Project inline.
+   - Output contract configuration: expected output format (Document, Copy, Strategy Brief, Audio/Video, Code, Spreadsheet), target quantity, and optional human approval requirements.
+
+2. **Automations & Operating Routines Management (`AutomationsLibraryView.tsx`)**:
+   - Dedicated "Routines" sub-tab in `MyWorkView` separating reusable Workflow Templates from activated workspace automations.
+   - Filter by All, Active, Paused, and Event-Driven routines.
+   - Lifecycle controls for recurring automations: Pause, Resume, Skip Next Run, and Cancel Future Runs.
+   - Honest simulation transparency banner informing users of browser-session simulation behavior and how to advance time using Demo Tools.
+
+3. **Project Settings & Lifecycle Controls Modal (`ProjectSettingsModal.tsx`)**:
+   - 8-tab comprehensive settings modal:
+     - **Details**: Project title, business objective, project type (`ONE_TIME_INITIATIVE`, `FIXED_CAMPAIGN`, `RECURRING_PROGRAMME`, `ONGOING_OPERATING_PROGRAMME`, `EVENT_DRIVEN_PROGRAMME`).
+     - **Schedule**: Timing cadence, active days of week, time of day, start/end dates, end rules (`date`, `goal_achieved`, `budget_exhausted`, `indefinite`).
+     - **Team**: Assigned AI specialists, human teammates, project owner, human approver, quick invite/add.
+     - **Governance**: Autonomy mode overrides, approval gates, revision policies.
+     - **Connections**: Required communication and CRM integration health checks with 1-click connect.
+     - **Outputs**: Milestone deliverable rules, sample asset attribution flags.
+     - **Notifications**: Operator alert preferences, email/in-app digest frequencies.
+     - **Lifecycle**: Pause Project (with `pausedSince` timestamp), Resume Project, End Project, Skip Next Scheduled Run, and Archive Project.
+
+4. **Visual Flow & Execution Map Integration**:
+   - Project sub-tabs updated to `Overview`, `Flow` (Execution Map), `Tasks`, `Outputs`, `Activity`, `Results`.
+   - Responsive horizontal wrapping execution map on desktop with connecting arrows and handoff labels; vertical timeline on mobile.
+   - Clicking steps in the execution map opens `WorkflowStepDetailDrawer` for full input/output contract inspection, human task completion, approval decisions, and worker workspace deep-links.
+
+5. **Individual Task Experience & Detail Modal (`TaskDetailModal.tsx`)**:
+   - Tasks list in `MyWorkView` features search, status filtering, and "+ Assign Task" button routing to `AssignmentComposerModal`.
+   - Clicking any task opens `TaskDetailModal` displaying owner badge, project attribution, output expectations, and direct actions to open the worker workspace or complete human steps.
+
+6. **Employee Workspace Header Controls**:
+   - `EmployeeWorkspace` enhanced with a direct "Assign" button that opens `AssignmentComposerModal` pre-populated with that employee's context and active project threading.
+
+### Verification
+- `compile_applet`: Passed.
+- `lint_applet`: Passed (`tsc --noEmit`, 0 warnings, 0 errors).
+
+

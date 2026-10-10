@@ -25,6 +25,8 @@ import { WorkflowDetailModal } from './components/workflows/WorkflowDetailModal'
 import { IntegrationConnectModal } from './components/modals/IntegrationConnectModal';
 import { IntegrationDetailModal } from './components/modals/IntegrationDetailModal';
 import { WorkflowBuilderModal } from './components/workflows/builder/WorkflowBuilderModal';
+import { AssignmentComposerModal } from './components/modals/AssignmentComposerModal';
+import { ProjectSettingsModal } from './components/modals/ProjectSettingsModal';
 import {
   Users,
   Layers,
@@ -408,6 +410,12 @@ const AppContent: React.FC = () => {
 
       {/* Custom Multi-Agent Workflow Builder */}
       <WorkflowBuilderModal />
+
+      {/* Assignment Composer Modal (Phase 2C.2B) */}
+      <AssignmentComposerModal />
+
+      {/* Project Settings & Lifecycle Modal (Phase 2C.2B) */}
+      <ProjectSettingsModal />
     </div>
   );
 };
